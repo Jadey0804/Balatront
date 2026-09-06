@@ -20,6 +20,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GameConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="GamesEngineeringBase.h">
       <Filter>头文件</Filter>
     </ClInclude>

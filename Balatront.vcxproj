@@ -70,6 +70,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -126,9 +129,16 @@
     <ClCompile Include="Balatront.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GameConfig.h" />
     <ClInclude Include="GamesEngineeringBase.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ItemGroup>
+    <PlaceholderResources Include="Resources\*.png;Resources\*.txt" />
+  </ItemGroup>
+  <Target Name="CopyPlaceholderResources" AfterTargets="Build">
+    <Copy SourceFiles="@(PlaceholderResources)" DestinationFolder="$(OutDir)Resources" SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

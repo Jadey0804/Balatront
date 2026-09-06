@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include<fstream>
 #include "GamesEngineeringBase.h"
+#include "GameConfig.h"
 
 
 using namespace std;
@@ -217,14 +218,35 @@ int main() {
     srand(static_cast<unsigned int>(time(nullptr)));
     // Create a canvas window with dimensions 1024x768 and title "Example"
     GamesEngineeringBase::Window canvas;
-    canvas.create(1024, 768, "RiverRaid");
+    canvas.create(GameConfig::WindowWidth, GameConfig::WindowHeight, "Balatront - Phase 0");
 
     // Timer object to manage time-based events, such as movement speed
     GamesEngineeringBase::Timer timer;
 
 
-    //Manager m(canvas);
-    Manager m(canvas, "order.txt");
+    // Phase 0 uses the supplied landscape only. Keep the tutorial classes above
+    // as the starting point for later phases; their RiverRaid assets are absent.
+    const char* backgroundPath = "Resources/landscape.png";
+    std::ifstream resourceFile(backgroundPath, std::ios::binary);
+    if (!resourceFile) {
+        std::cerr << "Missing Resources/landscape.png. Run from the executable directory.\n";
+        return 1;
+    }
+    resourceFile.close();
+    GamesEngineeringBase::Image background;
+    if (!background.load(backgroundPath)) {
+        std::cerr << "Unsupported landscape image format.\n";
+        return 1;
+    }
+    // A centered crop, not a moving camera or a tile-map implementation.
+    const unsigned int drawWidth = background.width < canvas.getWidth() ? background.width : canvas.getWidth();
+    const unsigned int drawHeight = background.height < canvas.getHeight() ? background.height : canvas.getHeight();
+    const unsigned int sourceX = (background.width - drawWidth) / 2;
+    const unsigned int sourceY = (background.height - drawHeight) / 2;
+    double elapsed = 0.0;
+    unsigned int frames = 0;
+    timer.reset();
+    std::cout << "Phase 0 placeholder. Press Esc to exit.\n";
     while (true)
     {
         // Check for input (key presses or window events)
@@ -234,10 +256,19 @@ int main() {
 
         if (canvas.keyPressed(VK_ESCAPE)) break;
 
-        m.update(canvas);
-        m.draw(canvas);
+        for (unsigned int row = 0; row < drawHeight; ++row)
+            for (unsigned int column = 0; column < drawWidth; ++column)
+                canvas.draw(column, row, background.atUnchecked(sourceX + column, sourceY + row));
 
         canvas.present();
+        elapsed += timer.dt();
+        ++frames;
+        if (elapsed >= 2.0) {
+            std::cout << "Baseline FPS: " << frames / elapsed
+                << " | ms/frame: " << elapsed * 1000.0 / frames << std::endl;
+            elapsed = 0.0;
+            frames = 0;
+        }
     }
     return 0;
 
