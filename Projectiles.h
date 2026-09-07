@@ -20,8 +20,10 @@ struct Projectile {
     Vector2 position;
     Vector2 velocity;
     float remainingLife = 0;
-    float damage = 0; // Stored for later hit resolution; no damage is applied yet.
+    float damage = 0;
     float radius = 0;
+    Vector2 previousPosition;
+    float motionFraction = 1;
 };
 
 // One implementation, two independent fixed arrays. No per-shot allocations.
@@ -46,6 +48,7 @@ public:
             const unsigned int index = (searchStart + offset) % Capacity;
             if (shots[index].active) continue;
             shots[index] = {true, position, {direction.x * factor, direction.y * factor}, lifetime, damage, radius};
+            shots[index].previousPosition = position;
             searchStart = (index + 1) % Capacity;
             ++active;
             return true;
@@ -53,13 +56,24 @@ public:
         return false;
     }
 
-    void update(float dt, Vector2 worldSize) {
+    void update(float dt) {
         for (unsigned int i = 0; i < Capacity; ++i) {
             Projectile& shot = shots[i];
             if (!shot.active) continue;
-            shot.position.x += shot.velocity.x * dt;
-            shot.position.y += shot.velocity.y * dt;
+            shot.previousPosition = shot.position;
+            const float travelTime = ClampValue(dt, 0, shot.remainingLife);
+            shot.motionFraction = dt > 0 ? travelTime / dt : 0;
+            shot.position.x += shot.velocity.x * travelTime;
+            shot.position.y += shot.velocity.y * travelTime;
             shot.remainingLife -= dt;
+        }
+    }
+
+    // Resolve the final segment before lifetime/world-bound reclamation.
+    void recycle(Vector2 worldSize) {
+        for (unsigned int i = 0; i < Capacity; ++i) {
+            const Projectile& shot = shots[i];
+            if (!shot.active) continue;
             const float margin = ProjectileConfig::WorldMargin;
             // Recycle against WORLD bounds, never against the moving camera.
             if (shot.remainingLife <= 0 || shot.position.x < -margin || shot.position.y < -margin

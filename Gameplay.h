@@ -15,12 +15,24 @@ inline float ClampValue(float value, float low, float high) {
 
 struct Player {
     Vector2 position;
+    Vector2 previousPosition;
     Vector2 velocity;
     float health = 100.0f;
     float speed = 180.0f;
     float radius = 14.0f;
+    float invulnerability = 0;
+    float attackInterval = 0.35f;
+    unsigned int aoeTargets = 3;
+
+    void takeDamage(float damage) {
+        if (invulnerability > 0 || health <= 0) return;
+        health = ClampValue(health - damage, 0, 100);
+        invulnerability = 0.35f;
+    }
 
     void update(Vector2 input, float dt, Vector2 worldSize) {
+        previousPosition = position;
+        invulnerability = ClampValue(invulnerability - dt, 0, 0.35f);
         const float length = std::sqrt(input.x * input.x + input.y * input.y);
         // Preserve analog input magnitude; cap diagonal keyboard input to one.
         if (length > 1.0f) { input.x /= length; input.y /= length; }
@@ -61,6 +73,7 @@ struct PlaySession {
     void start(Vector2 worldSize, Vector2 viewport) {
         player = Player{};
         player.position = {worldSize.x * 0.5f, worldSize.y * 0.5f};
+        player.previousPosition = player.position;
         elapsed = 0.0f;
         state = GameState::Playing;
         camera.follow(player.position, worldSize, viewport);

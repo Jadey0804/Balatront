@@ -37,6 +37,8 @@ struct Enemy {
     float health = 0;
     bool spawnedInside = false;
     float shootCooldown = ProjectileConfig::EnemyInterval;
+    Vector2 previousPosition;
+    float hitFlash = 0;
 };
 
 class EnemyManager {
@@ -58,6 +60,7 @@ public:
         for (unsigned int i = 0; i < GameConfig::MaxEnemies; ++i) {
             if (!enemies[i].active) {
                 enemies[i] = {true, type, position, definition(type).health, inside};
+                enemies[i].previousPosition = position;
                 ++typeCounts[static_cast<unsigned int>(type)];
                 if (inside) ++insideCount; else ++outsideCount;
                 return int(i);
@@ -72,6 +75,8 @@ public:
         if (session.state != GameState::Playing || dt <= 0) return;
         for (Enemy& enemy : enemies) {
             if (!enemy.active) continue;
+            enemy.previousPosition = enemy.position;
+            enemy.hitFlash = ClampValue(enemy.hitFlash - dt, 0, 0.15f);
             const EnemyDefinition& stats = definition(enemy.type);
             const Vector2 delta = {session.player.position.x - enemy.position.x, session.player.position.y - enemy.position.y};
             const float distance = std::sqrt(delta.x * delta.x + delta.y * delta.y);
@@ -105,6 +110,16 @@ public:
             // No burst of overdue shots after a stalled frame, including a full pool.
             enemy.shootCooldown = ProjectileConfig::EnemyInterval;
         }
+    }
+
+    bool damage(unsigned int index, float amount) {
+        if (index >= GameConfig::MaxEnemies || !enemies[index].active) return false;
+        Enemy& enemy = enemies[index];
+        enemy.health = ClampValue(enemy.health - amount, 0, definition(enemy.type).health);
+        enemy.hitFlash = 0.15f;
+        if (enemy.health > 0) return false;
+        enemy.active = false;
+        return true;
     }
 
     const Enemy& at(unsigned int index) const {
