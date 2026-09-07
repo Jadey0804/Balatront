@@ -27,7 +27,7 @@
 | Image | load(filename)，width/height/channels/data，at()/atUnchecked()，alphaAtUnchecked()，free() |
 | Image | 不可复制，可移动；析构释放像素。load 对缺失文件的处理不安全，不可盲目加载不存在的路径 |
 | XBoxControllers | hasController()，getFirstPlayerController()，probeControllers() |
-| XBoxController | update()，摇杆 getter、按钮查询；管理器返回控制器副本，读取输入前应更新该副本 |
+| XBoxController | 更正（阶段 1 审计）：update()、按钮查询、getID()；摇杆数值私有且没有 getter，不能直接读取 |
 | SoundManager | load()/play()、loadMusic()/playMusic()；本阶段不接入 |
 
 没有找到可直接复用的 Vector2、CollisionShape、虚拟摄像机或文字 HUD 接口。
