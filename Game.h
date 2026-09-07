@@ -1,6 +1,7 @@
 #pragma once
 #include "GamesEngineeringBase.h"
 #include "Gameplay.h"
+#include "Enemies.h"
 
 // Owns the framework window/resources and delegates simulation to PlaySession.
 class Game {
@@ -11,18 +12,26 @@ private:
     GamesEngineeringBase::Image landscape;
     GamesEngineeringBase::Image playerImage;
     PlaySession session;
+    EnemyManager enemies;
+    PlayerProjectilePool playerShots;
+    EnemyProjectilePool enemyShots;
+    float playerShootCooldown = 0;
     Vector2 worldSize;
     const Vector2 viewport = {float(GameConfig::WindowWidth), float(GameConfig::WindowHeight)};
     bool previousEscape = false;
     bool previousEnter = false;
     bool previousDebug = false;
+    bool previousShoot = false;
     bool showCollider = false;
     bool running = true;
     float fps = 0.0f;
 
     bool initialize();
     void update(float dt);
+    void updateProjectiles(float dt);
     void render();
     void drawPlayer();
+    void drawEnemies();
+    void drawProjectiles();
     void drawHud();
 };

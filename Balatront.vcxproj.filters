@@ -27,6 +27,8 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Game.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="Enemies.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="Projectiles.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="Gameplay.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="Hud.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="GamesEngineeringBase.h">
