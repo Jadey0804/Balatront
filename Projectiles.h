@@ -70,14 +70,14 @@ public:
     }
 
     // Resolve the final segment before lifetime/world-bound reclamation.
-    void recycle(Vector2 worldSize) {
+    void recycle(Vector2 worldSize, bool fixedWorld = true) {
         for (unsigned int i = 0; i < Capacity; ++i) {
             const Projectile& shot = shots[i];
             if (!shot.active) continue;
             const float margin = ProjectileConfig::WorldMargin;
             // Recycle against WORLD bounds, never against the moving camera.
-            if (shot.remainingLife <= 0 || shot.position.x < -margin || shot.position.y < -margin
-                || shot.position.x > worldSize.x + margin || shot.position.y > worldSize.y + margin)
+            if (shot.remainingLife <= 0 || (fixedWorld && (shot.position.x < -margin || shot.position.y < -margin
+                || shot.position.x > worldSize.x + margin || shot.position.y > worldSize.y + margin)))
                 deactivate(i);
         }
     }

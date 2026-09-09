@@ -30,15 +30,19 @@ struct Player {
         invulnerability = 0.35f;
     }
 
-    void update(Vector2 input, float dt, Vector2 worldSize) {
+    void update(Vector2 input, float dt, Vector2 worldSize, bool fixedWorld = true, float terrainMultiplier = 1.0f) {
         previousPosition = position;
         invulnerability = ClampValue(invulnerability - dt, 0, 0.35f);
         const float length = std::sqrt(input.x * input.x + input.y * input.y);
         // Preserve analog input magnitude; cap diagonal keyboard input to one.
         if (length > 1.0f) { input.x /= length; input.y /= length; }
-        velocity = {input.x * speed, input.y * speed};
-        position.x = ClampValue(position.x + velocity.x * dt, radius, worldSize.x - radius);
-        position.y = ClampValue(position.y + velocity.y * dt, radius, worldSize.y - radius);
+        velocity = {input.x * speed * terrainMultiplier, input.y * speed * terrainMultiplier};
+        position.x += velocity.x * dt;
+        position.y += velocity.y * dt;
+        if (fixedWorld) {
+            position.x = ClampValue(position.x, radius, worldSize.x - radius);
+            position.y = ClampValue(position.y, radius, worldSize.y - radius);
+        }
     }
 };
 
@@ -84,9 +88,9 @@ struct PlaySession {
         else if (state == GameState::Paused) state = GameState::Playing;
     }
 
-    void update(Vector2 input, float dt, Vector2 worldSize, Vector2 viewport) {
+    void update(Vector2 input, float dt, Vector2 worldSize, Vector2 viewport, float terrainMultiplier = 1.0f) {
         if (state != GameState::Playing) return;
-        player.update(input, dt, worldSize);
+        player.update(input, dt, worldSize, camera.mode == CameraMode::Fixed, terrainMultiplier);
         elapsed += dt;
         camera.follow(player.position, worldSize, viewport);
     }

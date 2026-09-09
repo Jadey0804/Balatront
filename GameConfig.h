@@ -8,11 +8,13 @@ namespace GameConfig {
     constexpr unsigned int WindowWidth = 1024;
     constexpr unsigned int WindowHeight = 768;
     constexpr unsigned int MaxEnemies = 256;
+    constexpr float InfiniteReclaimDistance = 2048.0f;
     constexpr unsigned int MaxPlayerProjectiles = 512;
     constexpr unsigned int MaxEnemyProjectiles = 256;
     constexpr unsigned int MaxMapWidth = 80;
     constexpr unsigned int MaxMapHeight = 60;
     constexpr unsigned int TileSize = 32;
+    constexpr float RoadSpeedMultiplier = 1.5f;
     constexpr unsigned int CardCount = 8;
     constexpr unsigned int MaxOwnedCards = 16;
     // Provisional storage ceiling; gameplay balancing belongs to phase 4.

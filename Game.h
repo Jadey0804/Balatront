@@ -3,6 +3,7 @@
 #include "Gameplay.h"
 #include "Enemies.h"
 #include "Combat.h"
+#include "TileMap.h"
 
 // Owns the framework window/resources and delegates simulation to PlaySession.
 class Game {
@@ -10,7 +11,7 @@ public:
     int run();
 private:
     GamesEngineeringBase::Window canvas;
-    GamesEngineeringBase::Image landscape;
+    TileMap tileMap;
     GamesEngineeringBase::Image playerImage;
     PlaySession session;
     EnemyManager enemies;
@@ -19,6 +20,10 @@ private:
     Combat combat;
     float playerShootCooldown = 0;
     Vector2 worldSize;
+    Vector2 spawnPosition;
+    const char* startupError = "Resource loading failed";
+    CameraMode selectedMode = CameraMode::Infinite;
+    std::uint32_t nextMapSeed = 1;
     const Vector2 viewport = {float(GameConfig::WindowWidth), float(GameConfig::WindowHeight)};
     bool previousEscape = false;
     bool previousEnter = false;
@@ -30,6 +35,7 @@ private:
     float fps = 0.0f;
 
     bool initialize();
+    void startSession();
     void update(float dt);
     void updateCombat(float dt);
     void drawCombat();

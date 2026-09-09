@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <ctime>
+#include <chrono>
 
 namespace {
     template<unsigned int Capacity>
@@ -39,20 +40,31 @@ namespace {
 }
 
 bool Game::initialize() {
+    nextMapSeed = static_cast<std::uint32_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
     canvas.create(GameConfig::WindowWidth, GameConfig::WindowHeight, "Balatront");
-    if (!loadImage(landscape, "Resources/landscape.png") || !loadImage(playerImage, "Resources/L.png"))
-        return false;
-    worldSize = {float(landscape.width), float(landscape.height)};
-    // This phase uses the supplied 1344x1344 scene, not the later 80x60 tile map.
+    if (!loadImage(playerImage, "Resources/L.png")) return false;
+    if (!tileMap.load("Resources/tiles.txt")) { startupError = tileMap.error(); return false; }
+    worldSize = tileMap.size();
     if (worldSize.x < viewport.x || worldSize.y < viewport.y) {
-        std::cerr << "The fixed test scene must cover the viewport.\n"; return false;
+        startupError = "Map must cover the viewport";
+        std::cerr << startupError << '\n'; return false;
     }
-    session.camera.follow({worldSize.x * 0.5f, worldSize.y * 0.5f}, worldSize, viewport);
+    if (!tileMap.findSpawn(session.player.radius, spawnPosition)) { startupError = tileMap.error(); return false; }
+    session.camera.follow(spawnPosition, worldSize, viewport);
     return true;
 }
 
 int Game::run() {
-    if (!initialize()) return 1;
+    if (!initialize()) {
+        canvas.clear();
+        Hud::text(canvas, 16, 16, "MAP OR RESOURCE ERROR - ESC TO QUIT");
+        char message[128];
+        std::snprintf(message, sizeof(message), "%s", startupError);
+        for (char* c = message; *c; ++c) if (*c >= 'a' && *c <= 'z') *c -= 'a' - 'A';
+        Hud::text(canvas, 16, 48, message);
+        do { canvas.checkInput(); canvas.present(); } while (!canvas.keyPressed(VK_ESCAPE));
+        return 1;
+    }
     GamesEngineeringBase::Timer timer;
     double measuredSeconds = 0.0;
     unsigned int frames = 0;
@@ -79,7 +91,31 @@ int Game::run() {
     return 0;
 }
 
+void Game::startSession() {
+    tileMap.mode = selectedMode;
+    session.camera.mode = selectedMode;
+    if (selectedMode == CameraMode::Infinite) {
+        nextMapSeed = nextMapSeed * 1664525u + 1013904223u;
+        tileMap.procedural.seed = nextMapSeed;
+    }
+    if (!tileMap.findSpawn(session.player.radius, spawnPosition)) { running = false; return; }
+    session.start(worldSize, viewport);
+    session.player.position = session.player.previousPosition = spawnPosition;
+    session.camera.follow(spawnPosition, worldSize, viewport);
+    enemies.reset(nextMapSeed);
+    playerShots.reset();
+    enemyShots.reset();
+    playerShootCooldown = 0;
+    combat = Combat{};
+    std::cout << "Started " << (selectedMode == CameraMode::Infinite ? "infinite" : "fixed")
+        << " map; seed " << tileMap.procedural.seed << '\n';
+}
+
 void Game::update(float dt) {
+    if (session.state == GameState::Menu || session.state == GameState::GameOver) {
+        if (canvas.keyPressed('1')) selectedMode = CameraMode::Fixed;
+        if (canvas.keyPressed('2')) selectedMode = CameraMode::Infinite;
+    }
     const bool escape = canvas.keyPressed(VK_ESCAPE);
     const bool enter = canvas.keyPressed(VK_RETURN);
     const bool debug = canvas.keyPressed(VK_F1);
@@ -91,12 +127,7 @@ void Game::update(float dt) {
     }
     else if (enterPressed) {
         if (session.state == GameState::Menu || session.state == GameState::GameOver) {
-            session.start(worldSize, viewport);
-            enemies.reset(static_cast<std::uint32_t>(std::time(nullptr)));
-            playerShots.reset();
-            enemyShots.reset();
-            playerShootCooldown = 0;
-            combat = Combat{};
+            startSession();
         }
         else if (session.state == GameState::Paused) session.togglePause();
     }
@@ -112,9 +143,25 @@ void Game::update(float dt) {
     };
     // A pause/resume/start event consumes no simulation time from the old state.
     const float step = (escapePressed || enterPressed) ? 0.0f : dt;
-    session.update(input, step, worldSize, viewport);
+    const float terrainMultiplier = tileMap.isRoad(session.player.position) ? GameConfig::RoadSpeedMultiplier : 1.0f;
+    session.update(input, step, worldSize, viewport, terrainMultiplier);
+    if (session.state == GameState::Playing) {
+        tileMap.resolveMovement(session.player, step);
+        session.camera.follow(session.player.position, worldSize, viewport);
+    }
     enemies.update(session, step, worldSize, viewport);
     updateCombat(step);
+    if (session.state == GameState::Playing && step > 0) {
+        for (UpgradePickup& pickup : combat.pickups) {
+            if (!pickup.active) continue;
+            const float dx = pickup.position.x - session.player.position.x;
+            const float dy = pickup.position.y - session.player.position.y;
+            if (selectedMode == CameraMode::Infinite
+                && dx*dx + dy*dy > GameConfig::InfiniteReclaimDistance * GameConfig::InfiniteReclaimDistance)
+                pickup.active = false;
+            else tileMap.placeOnLand(session.player.radius, pickup.position);
+        }
+    }
 }
 
 void Game::updateCombat(float dt) {
@@ -129,8 +176,8 @@ void Game::updateCombat(float dt) {
     playerShots.update(dt);
     enemyShots.update(dt);
     combat.resolve(session.player, enemies, playerShots, enemyShots);
-    playerShots.recycle(worldSize);
-    enemyShots.recycle(worldSize);
+    playerShots.recycle(worldSize, selectedMode == CameraMode::Fixed);
+    enemyShots.recycle(worldSize, selectedMode == CameraMode::Fixed);
     if (session.player.health <= 0) {
         session.state = GameState::GameOver;
         session.player.velocity = {};
@@ -255,7 +302,7 @@ void Game::drawCombat() {
 }
 
 void Game::drawHud() {
-    const int panelHeight = showCollider ? 182 : 110;
+    const int panelHeight = showCollider ? 206 : 134;
     // Move the overlay out of the way when the player reaches the top edge.
     const int panelY = session.state != GameState::Menu
         && session.camera.worldToScreen(session.player.position).y < panelHeight + 24
@@ -265,10 +312,15 @@ void Game::drawHud() {
     if (session.state == GameState::Menu) {
         Hud::text(canvas, 16, panelY + 12, "BALATRONT - ENTER TO START / ESC TO QUIT");
         Hud::text(canvas, 16, panelY + 36, "WASD MOVE / LEFT CLICK SHOOT - USE ENGLISH INPUT");
+        Hud::text(canvas, 16, panelY + 60, "1 FIXED MAP / 2 RANDOM INFINITE MAP");
+        Hud::text(canvas, 16, panelY + 84, selectedMode == CameraMode::Infinite
+            ? "SELECTED: INFINITE" : "SELECTED: FIXED");
     } else {
         char status[128];
-        std::snprintf(status, sizeof(status), "HP %.0f  X %.1f  Y %.1f  TIME %.1f  FPS %.0f",
-            session.player.health, session.player.position.x, session.player.position.y, session.elapsed, fps);
+        const bool onRoad = tileMap.isRoad(session.player.position);
+        std::snprintf(status, sizeof(status), "HP %.0f  X %.1f  Y %.1f  TIME %.1f  FPS %.0f  %s SPD %.0f",
+            session.player.health, session.player.position.x, session.player.position.y, session.elapsed, fps,
+            onRoad ? "ROAD" : "GRASS", session.player.speed * (onRoad ? GameConfig::RoadSpeedMultiplier : 1.0f));
         Hud::text(canvas, 16, panelY + 12, status);
         Hud::text(canvas, 16, panelY + 36, session.state == GameState::Paused
             ? "PAUSED - ESC OR ENTER TO RESUME / Q TO QUIT"
@@ -280,30 +332,33 @@ void Game::drawHud() {
         Hud::text(canvas, 16, panelY + 84, combat.upgradeFeedback > 0
             ? (combat.lastUpgradeSpeed ? "FAST DEAL COLLECTED" : "FULL HOUSE COLLECTED")
             : "PICK UP F FOR FIRE RATE / N FOR AOE TARGETS");
+        if (session.state == GameState::GameOver)
+            std::snprintf(status, sizeof(status), "1 FIXED / 2 INFINITE - NEXT: %s",
+                selectedMode == CameraMode::Infinite ? "INFINITE" : "FIXED");
+        else if (selectedMode == CameraMode::Infinite)
+            std::snprintf(status, sizeof(status), "INFINITE - SEED %u", tileMap.procedural.seed);
+        else std::snprintf(status, sizeof(status), "FIXED - RESOURCES/TILES.TXT");
+        Hud::text(canvas, 16, panelY + 108, status);
         if (showCollider) {
             std::snprintf(status, sizeof(status), "NPC %u/256  SPAWN %.2f  IN %u  OUT %u  SKIP %u",
                 enemies.activeCount(), EnemyManager::spawnInterval(session.elapsed), enemies.insideCount,
                 enemies.outsideCount, enemies.capacitySkips + enemies.locationSkips);
-            Hud::text(canvas, 16, panelY + 108, status);
+            Hud::text(canvas, 16, panelY + 132, status);
             std::snprintf(status, sizeof(status), "G %u HP35  S %u HP18  B %u HP120  T %u HP65",
                 enemies.typeCounts[0], enemies.typeCounts[1], enemies.typeCounts[2], enemies.typeCounts[3]);
-            Hud::text(canvas, 16, panelY + 132, status);
+            Hud::text(canvas, 16, panelY + 156, status);
             std::snprintf(status, sizeof(status), "SHOTS PLAYER %u/%u  ENEMY %u/%u  SKIP %u",
                 playerShots.activeCount(), GameConfig::MaxPlayerProjectiles,
                 enemyShots.activeCount(), GameConfig::MaxEnemyProjectiles,
                 playerShots.skippedCount() + enemyShots.skippedCount());
-            Hud::text(canvas, 16, panelY + 156, status);
+            Hud::text(canvas, 16, panelY + 180, status);
         }
     }
 }
 
 void Game::render() {
     canvas.clear();
-    const int cameraX = int(session.camera.position.x);
-    const int cameraY = int(session.camera.position.y);
-    for (unsigned int y = 0; y < canvas.getHeight(); ++y)
-        for (unsigned int x = 0; x < canvas.getWidth(); ++x)
-            canvas.draw(x, y, landscape.atUnchecked(cameraX + x, cameraY + y));
+    tileMap.draw(canvas, session.camera);
     if (session.state != GameState::Menu) {
         drawEnemies();
         drawPlayer();

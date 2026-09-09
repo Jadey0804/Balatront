@@ -80,6 +80,10 @@ public:
             const EnemyDefinition& stats = definition(enemy.type);
             const Vector2 delta = {session.player.position.x - enemy.position.x, session.player.position.y - enemy.position.y};
             const float distance = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+            if (session.camera.mode == CameraMode::Infinite && distance > GameConfig::InfiniteReclaimDistance) {
+                enemy.active = false;
+                continue; // Distant despawn is not a kill and grants no rewards.
+            }
             if (distance > 0 && stats.speed > 0) {
                 const float travel = ClampValue(stats.speed * dt, 0, distance);
                 enemy.position.x += delta.x / distance * travel;
@@ -172,7 +176,8 @@ private:
                 else if (edge == 2) point.y = camera.y - radius - gap;
                 else point.y = camera.y + viewport.y + radius + gap;
             }
-            if (point.x < radius || point.y < radius || point.x > worldSize.x-radius || point.y > worldSize.y-radius) continue;
+            if (session.camera.mode == CameraMode::Fixed && (point.x < radius || point.y < radius
+                || point.x > worldSize.x-radius || point.y > worldSize.y-radius)) continue;
             const float dx = point.x - session.player.position.x, dy = point.y - session.player.position.y;
             if (dx*dx + dy*dy < EnemyConfig::SafeDistance * EnemyConfig::SafeDistance) continue;
             return true;

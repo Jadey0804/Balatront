@@ -135,6 +135,8 @@
     <ClInclude Include="Enemies.h" />
     <ClInclude Include="Projectiles.h" />
     <ClInclude Include="Combat.h" />
+    <ClInclude Include="TileMap.h" />
+    <ClInclude Include="ProceduralMap.h" />
     <ClInclude Include="Gameplay.h" />
     <ClInclude Include="Hud.h" />
     <ClInclude Include="GamesEngineeringBase.h" />
