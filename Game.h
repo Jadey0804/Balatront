@@ -6,9 +6,11 @@
 #include "TileMap.h"
 #include "EnemySprites.h"
 #include "LevelFlow.h"
+#include "HealthPickups.h"
 
 // Owns the framework window/resources and delegates simulation to PlaySession.
 class Game {
+    friend class SaveGame;
 public:
     int run();
 private:
@@ -20,9 +22,12 @@ private:
     EnemySprites enemySprites;
     PlayerProjectilePool playerShots;
     EnemyProjectilePool enemyShots;
+    ManualProjectilePool manualShots;
     Combat combat;
+    HealthPickupManager healthPickups;
     LevelFlow level;
     float playerShootCooldown = 0;
+    float manualShootCooldown = 0;
     Vector2 worldSize;
     Vector2 spawnPosition;
     const char* startupError = "Resource loading failed";
@@ -33,6 +38,10 @@ private:
     bool previousEnter = false;
     bool previousDebug = false;
     bool previousAoe = false;
+    bool previousSave = false;
+    bool previousLoad = false;
+    const char* saveMessage = "F5 SAVE / F9 LOAD";
+    float saveMessageTime = 0;
     bool showCollider = false;
     bool running = true;
     float fps = 0.0f;
@@ -48,4 +57,7 @@ private:
     void drawEnemies();
     void drawProjectiles();
     void drawHud();
+    void drawResult();
+    unsigned int score() const;
+    const char* grade() const;
 };

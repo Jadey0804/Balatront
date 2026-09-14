@@ -19,6 +19,7 @@ struct Projectile {
 // One implementation, two independent fixed arrays. No per-shot allocations.
 template<unsigned int Capacity>
 class ProjectilePool {
+    friend class SaveGame;
 public:
     void reset() {
         for (Projectile& shot : shots) shot = Projectile{};
@@ -94,3 +95,4 @@ private:
 
 using PlayerProjectilePool = ProjectilePool<GameConfig::MaxPlayerProjectiles>;
 using EnemyProjectilePool = ProjectilePool<GameConfig::MaxEnemyProjectiles>;
+using ManualProjectilePool = ProjectilePool<GameConfig::MaxManualProjectiles>;

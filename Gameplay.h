@@ -21,6 +21,8 @@ struct Player {
     float speed = GameplaySettings::get().speed;
     float radius = GameplaySettings::get().radius;
     float invulnerability = 0;
+    float damageFeedback = 0;
+    float damageAnimationTime = 0;
     float attackInterval = GameplaySettings::get().attackInterval;
     unsigned int aoeTargets = GameplaySettings::get().initialTargets;
 
@@ -28,11 +30,20 @@ struct Player {
         if (damage <= 0 || invulnerability > 0 || health <= 0) return;
         health = ClampValue(health - damage, 0, GameplaySettings::get().health);
         invulnerability = GameplaySettings::get().invulnerability;
+        damageFeedback = GameplaySettings::get().invulnerability;
+    }
+
+    void takeContinuousDamage(float damage) {
+        if (damage <= 0 || health <= 0) return;
+        health = ClampValue(health - damage, 0, GameplaySettings::get().health);
+        damageFeedback = GameplaySettings::get().invulnerability;
     }
 
     void update(Vector2 input, float dt, Vector2 worldSize, bool fixedWorld = true, float terrainMultiplier = 1.0f) {
         previousPosition = position;
         invulnerability = ClampValue(invulnerability - dt, 0, GameplaySettings::get().invulnerability);
+        damageFeedback = ClampValue(damageFeedback - dt, 0, GameplaySettings::get().invulnerability);
+        damageAnimationTime = damageFeedback > 0 ? damageAnimationTime + dt : 0;
         const float length = std::sqrt(input.x * input.x + input.y * input.y);
         // Preserve analog input magnitude; cap diagonal keyboard input to one.
         if (length > 1.0f) { input.x /= length; input.y /= length; }

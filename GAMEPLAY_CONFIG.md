@@ -1,7 +1,7 @@
 # 基础属性配置
 
 统一文件：仓库内 Resources/gameplay.txt。运行读取EXE旁的Resources/gameplay.txt。
-每行格式为 `属性名 数值`，支持空行和井号注释，顺序自由。全部42项必须提供一次，缺失、重复、未知名称、非有限数值或越界会在启动时报错。
+每行格式为 `属性名 数值`，支持空行和井号注释，顺序自由。全部53项必须提供一次，缺失、重复、未知名称、非有限数值或越界会在启动时报错。
 
 ## 字段
 
@@ -35,3 +35,7 @@ Debug/Release编译通过，仅旧教程C4018警告。额外运行一次真实�
 手动重点：分别修改玩家血量、某敌人HP、炮弹伤害、道路倍率、AOE数量和强化参数后重启，检查HUD及战斗变化；重开应恢复修改后的初始值。若删掉属性或写入非法数值，启动应报告对应错误。
 
 阶段7新增：`level1.duration` 控制第一关传送门出现时间（默认120秒），`portal.radius` 控制传送门触发半径（默认18像素）。
+
+手动炮弹使用 `manual_projectile.damage/speed/lifetime/radius/attack_interval`，默认25伤害、360像素/秒、4秒寿命、6像素半径、0.8秒间隔，不受攻速强化影响。
+
+医药箱使用 `health_pickup.heal/spawn_interval/lifetime/spawn_radius/pickup_radius`，默认恢复25点、每20秒生成、15秒消失、玩家500像素内生成、拾取半径16。`lava.damage_per_second` 默认每秒扣6点血。

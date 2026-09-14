@@ -13,10 +13,13 @@ struct GameplaySettings {
     float health=0, speed=0, radius=0, invulnerability=0, attackInterval=0, roadMultiplier=0;
     EnemyStats enemies[4];
     float turretInterval=0;
-    ProjectileStats playerProjectile, enemyProjectile;
+    ProjectileStats playerProjectile, enemyProjectile, manualProjectile;
+    float manualAttackInterval=0;
     float aoeDamage=0, aoeCooldown=0, attackMultiplier=0, minAttackInterval=0, pickupRadius=0;
     unsigned int initialTargets=0, maxTargets=0, killsPerDrop=0, targetsAdded=0;
     float firstLevelDuration=0, portalRadius=0;
+    float healthPickupHeal=0, healthPickupInterval=0, healthPickupLifetime=0;
+    float healthPickupSpawnRadius=0, healthPickupRadius=0, lavaDamagePerSecond=0;
 
     static GameplaySettings& data() { static GameplaySettings settings; return settings; }
     static const GameplaySettings& get() { return data(); }
@@ -64,6 +67,11 @@ struct GameplaySettings {
             {"enemy_projectile.speed", &pending.enemyProjectile.speed, nullptr, 1, 10000},
             {"enemy_projectile.lifetime", &pending.enemyProjectile.lifetime, nullptr, 0.01f, 120},
             {"enemy_projectile.radius", &pending.enemyProjectile.radius, nullptr, 0.5f, 128},
+            {"manual_projectile.damage", &pending.manualProjectile.damage, nullptr, 0, 1000000},
+            {"manual_projectile.speed", &pending.manualProjectile.speed, nullptr, 1, 10000},
+            {"manual_projectile.lifetime", &pending.manualProjectile.lifetime, nullptr, 0.01f, 120},
+            {"manual_projectile.radius", &pending.manualProjectile.radius, nullptr, 0.5f, 128},
+            {"manual_projectile.attack_interval", &pending.manualAttackInterval, nullptr, 0.01f, 60},
             {"aoe.damage", &pending.aoeDamage, nullptr, 0, 1000000},
             {"aoe.cooldown", &pending.aoeCooldown, nullptr, 0.01f, 600},
             {"aoe.initial_targets", nullptr, &pending.initialTargets, 1, float(GameConfig::MaxAoeTargets)},
@@ -72,7 +80,13 @@ struct GameplaySettings {
             {"upgrade.attack_interval_multiplier", &pending.attackMultiplier, nullptr, 0.01f, 1},
             {"upgrade.min_attack_interval", &pending.minAttackInterval, nullptr, 0.01f, 60},
             {"upgrade.aoe_targets_added", nullptr, &pending.targetsAdded, 1, float(GameConfig::MaxAoeTargets)},
-            {"upgrade.pickup_radius", &pending.pickupRadius, nullptr, 1, 512}
+            {"upgrade.pickup_radius", &pending.pickupRadius, nullptr, 1, 512},
+            {"health_pickup.heal", &pending.healthPickupHeal, nullptr, 1, 1000000},
+            {"health_pickup.spawn_interval", &pending.healthPickupInterval, nullptr, 0.1f, 600},
+            {"health_pickup.lifetime", &pending.healthPickupLifetime, nullptr, 0.1f, 600},
+            {"health_pickup.spawn_radius", &pending.healthPickupSpawnRadius, nullptr, 1, 5000},
+            {"health_pickup.pickup_radius", &pending.healthPickupRadius, nullptr, 1, 128},
+            {"lava.damage_per_second", &pending.lavaDamagePerSecond, nullptr, 0, 1000000}
         };
         std::ifstream file(path);
         if (!file) return fail("Cannot open Resources/gameplay.txt");

@@ -47,6 +47,7 @@ struct Enemy {
 };
 
 class EnemyManager {
+    friend class SaveGame;
 public:
     float animationDurations[EnemyConfig::TypeCount][4] = {};
     void reset(std::uint32_t seed = 1) {

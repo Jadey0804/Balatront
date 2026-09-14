@@ -48,6 +48,10 @@ public:
             else if (!std::strcmp(type,"turretBody")) group = 3;
             else if (!std::strcmp(type,"turretPipe")) group = 4;
             else if (!std::strcmp(type,"portal")) group = 5;
+            else if (!std::strcmp(type,"aoe")) group = 6;
+            else if (!std::strcmp(type,"manualBomb")) group = 7;
+            else if (!std::strcmp(type,"healthPickup")) group = 8;
+            else if (!std::strcmp(type,"bombHit")) group = 9;
             if (!std::strcmp(action,"walk") || !std::strcmp(action,"fly") || !std::strcmp(action,"idle")) state = 0;
             else if (!std::strcmp(action,"attack")) state = 1;
             else if (!std::strcmp(action,"hurt")) state = 2;
@@ -77,11 +81,23 @@ public:
             lookup[group][state] = int(count++);
         }
         if (!file.eof()) return fail("Sprite row is too long or unreadable");
-        for (int group = 0; group < 6; ++group)
-            if (lookup[group][0] < 0) return fail("Missing enemy movement or turret idle sprite");
+        for (int group = 0; group < 10; ++group)
+            if (lookup[group][0] < 0) return fail("Missing movement or idle sprite");
         return true;
     }
     const char* error() const { return errorMessage; }
+    void drawAoe(GamesEngineeringBase::Window& canvas, Vector2 screen, float time) const {
+        drawClip(canvas, clips[lookup[6][0]], screen, time, false, 0, false);
+    }
+    void drawManualBomb(GamesEngineeringBase::Window& canvas, Vector2 screen) const {
+        drawClip(canvas, clips[lookup[7][0]], screen, 0, false, 0, false);
+    }
+    void drawHealthPickup(GamesEngineeringBase::Window& canvas, Vector2 screen) const {
+        drawClip(canvas, clips[lookup[8][0]], screen, 0, false, 0, false);
+    }
+    void drawBombHit(GamesEngineeringBase::Window& canvas, Vector2 screen) const {
+        drawClip(canvas, clips[lookup[9][0]], screen, 0, false, 0, false);
+    }
     void drawPortal(GamesEngineeringBase::Window& canvas, Vector2 screen, float time) const {
         drawClip(canvas, clips[lookup[5][0]], screen, time, false, 0, false);
     }
@@ -109,7 +125,7 @@ public:
     }
 private:
     SpriteClip clips[MaxClips];
-    int lookup[6][4];
+    int lookup[10][4];
     unsigned int count = 0;
     const char* errorMessage = "Sprite loading failed";
     char detail[128] = {};

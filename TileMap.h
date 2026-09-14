@@ -8,8 +8,9 @@
 #include <cstdio>
 
 class TileMap {
+    friend class SaveGame;
 public:
-    static constexpr unsigned int ImageCount = 24;
+    static constexpr unsigned int ImageCount = 25;
 
     bool load(const char* path) {
         std::ifstream file(path);
@@ -58,12 +59,21 @@ public:
         const unsigned int id = mode == CameraMode::Infinite
             ? procedural.appearance(col, row).images[(y >= tileSize/2 ? 2 : 0) + (x >= tileSize/2 ? 1 : 0)]
             : tileAt(col, row);
-        if (id == 0 || (id >= 14 && id <= 22)) return false;
+        if (id == 0 || id == 24 || (id >= 14 && id <= 22)) return false;
         // This atlas has distinct palettes: all road shades have R>G,B;
         // all grass shades have G>R. Sample the same source pixel as rendering.
         const unsigned char* pixel = images[id].atUnchecked(x, y);
         return pixel[0] > pixel[1] && pixel[0] > pixel[2];
     }
+
+    bool isLava(Vector2 position) const {
+        const int col = int(std::floor(position.x / GameConfig::TileSize));
+        const int row = int(std::floor(position.y / GameConfig::TileSize));
+        if (mode == CameraMode::Fixed && (col < 0 || row < 0 || col >= int(width) || row >= int(height))) return false;
+        return tileAt(col, row) == 24;
+    }
+
+    bool isBlocked(Vector2 position, float radius) const { return blocked(position, radius); }
 
     bool findSpawn(float radius, Vector2& position) {
         position = mode == CameraMode::Infinite ? Vector2{16, 16} : Vector2{size().x * 0.5f, size().y * 0.5f};

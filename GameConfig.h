@@ -11,6 +11,8 @@ namespace GameConfig {
     constexpr float InfiniteReclaimDistance = 2048.0f;
     constexpr unsigned int MaxPlayerProjectiles = 512;
     constexpr unsigned int MaxEnemyProjectiles = 256;
+    constexpr unsigned int MaxManualProjectiles = 128;
+    constexpr unsigned int MaxHealthPickups = 16;
     constexpr unsigned int MaxMapWidth = 80;
     constexpr unsigned int MaxMapHeight = 60;
     constexpr unsigned int TileSize = 32;
@@ -22,7 +24,7 @@ namespace GameConfig {
 }
 
 // Phase 0 declares the vocabulary only. Transitions belong to later phases.
-enum class GameState { Menu, Playing, Paused, Shop, GameOver };
+enum class GameState { Menu, Playing, Paused, Shop, GameOver, Victory };
 
 // Assertions diagnose programmer errors only. Capacity exhaustion must return
 // failure at the call site in every configuration, never rely on an assertion.

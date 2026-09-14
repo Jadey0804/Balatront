@@ -4,12 +4,19 @@
 namespace CombatConfig {
     constexpr float FeedbackTime = 0.4f;
     constexpr unsigned int MaxPickups = 64;
+    constexpr unsigned int MaxHitEffects = 64;
+    constexpr float HitFeedbackTime = 0.25f;
 }
 
 struct UpgradePickup {
     bool active = false;
     Vector2 position;
     bool attackSpeed = true;
+};
+
+struct HitEffect {
+    Vector2 position;
+    float remaining = 0;
 };
 
 // Relative motion reduces two moving circles to a segment against a circle.
@@ -36,15 +43,20 @@ struct Combat {
     Vector2 targetPositions[GameConfig::MaxAoeTargets] = {};
     unsigned int targetCount = 0;
     unsigned int kills = 0;
+    unsigned int upgradesCollected = 0;
     UpgradePickup pickups[CombatConfig::MaxPickups] = {};
     unsigned int skippedPickups = 0;
     float upgradeFeedback = 0;
     bool lastUpgradeSpeed = true;
+    HitEffect hitEffects[CombatConfig::MaxHitEffects] = {};
+    unsigned int nextHitEffect = 0;
 
     void update(float dt) {
         aoeCooldown = ClampValue(aoeCooldown - dt, 0, GameplaySettings::get().aoeCooldown);
         feedbackTime = ClampValue(feedbackTime - dt, 0, CombatConfig::FeedbackTime);
         upgradeFeedback = ClampValue(upgradeFeedback - dt, 0, 2);
+        for (HitEffect& hit : hitEffects)
+            hit.remaining = ClampValue(hit.remaining - dt, 0, CombatConfig::HitFeedbackTime);
     }
 
     void damageEnemy(EnemyManager& enemies, unsigned int index, float amount) {
@@ -76,6 +88,7 @@ struct Combat {
                 player.aoeTargets = increased < limit ? increased : limit;
             }
             lastUpgradeSpeed = pickup.attackSpeed;
+            ++upgradesCollected;
             upgradeFeedback = 2;
             pickup.active = false;
         }
@@ -108,27 +121,7 @@ struct Combat {
 
     void resolve(Player& player, EnemyManager& enemies,
         PlayerProjectilePool& playerShots, EnemyProjectilePool& enemyShots) {
-        for (unsigned int i = 0; i < GameConfig::MaxPlayerProjectiles; ++i) {
-            const Projectile& shot = playerShots.at(i);
-            if (!shot.active) continue;
-            int closest = -1;
-            float first = 2;
-            for (unsigned int j = 0; j < GameConfig::MaxEnemies; ++j) {
-                const Enemy& enemy = enemies.at(j);
-                if (!enemy.active) continue;
-                const Vector2 targetEnd = {
-                    enemy.previousPosition.x + (enemy.position.x - enemy.previousPosition.x) * shot.motionFraction,
-                    enemy.previousPosition.y + (enemy.position.y - enemy.previousPosition.y) * shot.motionFraction};
-                float fraction;
-                if (CircleSweep(shot.previousPosition, shot.position, enemy.previousPosition,
-                    targetEnd, shot.radius + EnemyManager::definition(enemy.type).radius, fraction)
-                    && fraction < first) { first = fraction; closest = int(j); }
-            }
-            if (closest >= 0) {
-                damageEnemy(enemies, static_cast<unsigned int>(closest), shot.damage);
-                playerShots.deactivate(i);
-            }
-        }
+        resolvePlayerShots(enemies, playerShots, false);
         for (unsigned int i = 0; i < GameConfig::MaxEnemyProjectiles; ++i) {
             const Projectile& shot = enemyShots.at(i);
             if (!shot.active) continue;
@@ -149,6 +142,40 @@ struct Combat {
             float fraction;
             if (CircleSweep(player.previousPosition, player.position, enemy.previousPosition,
                 enemy.position, player.radius + stats.radius, fraction)) player.takeDamage(stats.contactDamage);
+        }
+    }
+
+    void resolveManual(EnemyManager& enemies, ManualProjectilePool& shots) {
+        resolvePlayerShots(enemies, shots, true);
+    }
+
+private:
+    template<unsigned int Capacity>
+    void resolvePlayerShots(EnemyManager& enemies, ProjectilePool<Capacity>& playerShots, bool showHit) {
+        for (unsigned int i = 0; i < Capacity; ++i) {
+            const Projectile& shot = playerShots.at(i);
+            if (!shot.active) continue;
+            int closest = -1;
+            float first = 2;
+            for (unsigned int j = 0; j < GameConfig::MaxEnemies; ++j) {
+                const Enemy& enemy = enemies.at(j);
+                if (!enemy.active) continue;
+                const Vector2 targetEnd = {
+                    enemy.previousPosition.x + (enemy.position.x - enemy.previousPosition.x) * shot.motionFraction,
+                    enemy.previousPosition.y + (enemy.position.y - enemy.previousPosition.y) * shot.motionFraction};
+                float fraction;
+                if (CircleSweep(shot.previousPosition, shot.position, enemy.previousPosition,
+                    targetEnd, shot.radius + EnemyManager::definition(enemy.type).radius, fraction)
+                    && fraction < first) { first = fraction; closest = int(j); }
+            }
+            if (closest >= 0) {
+                if (showHit) {
+                    hitEffects[nextHitEffect] = {enemies.at(closest).position, CombatConfig::HitFeedbackTime};
+                    nextHitEffect = (nextHitEffect + 1) % CombatConfig::MaxHitEffects;
+                }
+                damageEnemy(enemies, static_cast<unsigned int>(closest), shot.damage);
+                playerShots.deactivate(i);
+            }
         }
     }
 };

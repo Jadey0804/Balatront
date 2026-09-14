@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+# Local save slot and replacement files
+savegame.dat
+savegame.tmp
+savegame.bak

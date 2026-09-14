@@ -1,10 +1,12 @@
 #include "Game.h"
 #include "Hud.h"
+#include "SaveGame.h"
 #include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <ctime>
 #include <chrono>
+#include <cstring>
 
 namespace {
     template<unsigned int Capacity>
@@ -36,6 +38,51 @@ namespace {
             std::cerr << "Unsupported image: " << path << '\n'; return false;
         }
         return true;
+    }
+
+    bool manualAim(const GamesEngineeringBase::Window& canvas, Vector2 playerScreen, Vector2& direction) {
+        float x = 0, y = 0;
+        for (unsigned int id = 0; id < XUSER_MAX_COUNT; ++id) {
+            XINPUT_STATE state = {};
+            if (XInputGetState(id, &state) != ERROR_SUCCESS) continue;
+            const float rx = float(state.Gamepad.sThumbRX), ry = float(state.Gamepad.sThumbRY);
+            if (rx*rx + ry*ry > float(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+                * float(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)) { x = rx; y = -ry; break; }
+        }
+        if (x == 0 && y == 0 && canvas.mouseButtonPressed(GamesEngineeringBase::MouseLeft)) {
+            x = float(canvas.getMouseInWindowX()) - playerScreen.x;
+            y = float(canvas.getMouseInWindowY()) - playerScreen.y;
+        }
+        if (x == 0 && y == 0) return false;
+        const float angle = std::atan2(y, x);
+        int sector = int(std::floor((angle + 0.392699082f) / 0.785398163f));
+        if (sector < 0) sector += 8;
+        static const Vector2 directions[8] = {
+            {1,0}, {0.707106781f,0.707106781f}, {0,1}, {-0.707106781f,0.707106781f},
+            {-1,0}, {-0.707106781f,-0.707106781f}, {0,-1}, {0.707106781f,-0.707106781f}
+        };
+        direction = directions[sector % 8];
+        return true;
+    }
+
+    bool controllerMovement(Vector2& movement) {
+        for (unsigned int id = 0; id < XUSER_MAX_COUNT; ++id) {
+            XINPUT_STATE state = {};
+            if (XInputGetState(id, &state) != ERROR_SUCCESS) continue;
+            const float x = float(state.Gamepad.sThumbLX);
+            const float y = -float(state.Gamepad.sThumbLY);
+            const float length = std::sqrt(x*x + y*y);
+            if (length <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) continue;
+            const float magnitude = ClampValue((length - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+                / (32767.0f - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE), 0, 1);
+            movement = {x / length * magnitude, y / length * magnitude};
+            return true;
+        }
+        return false;
+    }
+
+    void centredText(GamesEngineeringBase::Window& canvas, int y, const char* message) {
+        Hud::text(canvas, (int(canvas.getWidth()) - int(std::strlen(message)) * 12) / 2, y, message);
     }
 }
 
@@ -107,8 +154,11 @@ void Game::startSession() {
     enemies.reset(nextMapSeed);
     playerShots.reset();
     enemyShots.reset();
+    manualShots.reset();
     playerShootCooldown = 0;
+    manualShootCooldown = 0;
     combat = Combat{};
+    healthPickups.reset(nextMapSeed);
     std::cout << "Started " << (selectedMode == CameraMode::Infinite ? "infinite" : "fixed")
         << " map; seed " << tileMap.procedural.seed << '\n';
 }
@@ -127,26 +177,45 @@ void Game::enterSecondLevel() {
     enemies.reset(nextMapSeed);
     playerShots.reset();
     enemyShots.reset();
+    manualShots.reset();
+    healthPickups.reset(nextMapSeed);
     for (UpgradePickup& pickup : combat.pickups) pickup = UpgradePickup{};
     combat.targetCount = 0;
     combat.feedbackTime = combat.upgradeFeedback = 0;
+    for (HitEffect& hit : combat.hitEffects) hit = HitEffect{};
+    combat.nextHitEffect = 0;
     level.number = 2;
     level.portalOpen = false;
     level.portalTime = 0;
 }
 
 void Game::update(float dt) {
+    saveMessageTime = ClampValue(saveMessageTime - dt, 0, 4);
+    const bool save = canvas.keyPressed(VK_F5), load = canvas.keyPressed(VK_F9);
+    const bool savePressed = save && !previousSave, loadPressed = load && !previousLoad;
+    previousSave = save; previousLoad = load;
+    if (savePressed || loadPressed) {
+        saveMessage = loadPressed ? SaveGame::load(*this) : SaveGame::save(*this);
+        saveMessageTime = 4;
+        previousEscape = canvas.keyPressed(VK_ESCAPE);
+        previousEnter = canvas.keyPressed(VK_RETURN);
+        previousDebug = canvas.keyPressed(VK_F1);
+        previousAoe = canvas.keyPressed(VK_SPACE);
+        return; // Save/load operates on the last complete simulation frame.
+    }
     const bool escape = canvas.keyPressed(VK_ESCAPE);
     const bool enter = canvas.keyPressed(VK_RETURN);
     const bool debug = canvas.keyPressed(VK_F1);
     const bool escapePressed = escape && !previousEscape;
     const bool enterPressed = enter && !previousEnter;
     if (escapePressed) {
-        if (session.state == GameState::Menu || session.state == GameState::GameOver) running = false;
+        if (session.state == GameState::Menu || session.state == GameState::GameOver
+            || session.state == GameState::Victory) running = false;
         else session.togglePause();
     }
     else if (enterPressed) {
-        if (session.state == GameState::Menu || session.state == GameState::GameOver) {
+        if (session.state == GameState::Menu || session.state == GameState::GameOver
+            || session.state == GameState::Victory) {
             startSession();
         }
         else if (session.state == GameState::Paused) session.togglePause();
@@ -157,10 +226,11 @@ void Game::update(float dt) {
     previousEnter = enter;
     previousDebug = debug;
 
-    const Vector2 input = {
+    Vector2 input = {
         float(canvas.keyPressed('D')) - float(canvas.keyPressed('A')),
         float(canvas.keyPressed('S')) - float(canvas.keyPressed('W'))
     };
+    if (input.x == 0 && input.y == 0) controllerMovement(input);
     // A pause/resume/start event consumes no simulation time from the old state.
     const float step = (escapePressed || enterPressed) ? 0.0f : dt;
     const float terrainMultiplier = tileMap.isRoad(session.player.position) ? GameplaySettings::get().roadMultiplier : 1.0f;
@@ -168,9 +238,18 @@ void Game::update(float dt) {
     if (session.state == GameState::Playing) {
         tileMap.resolveMovement(session.player, step);
         session.camera.follow(session.player.position, worldSize, viewport);
+        if (tileMap.isLava(session.player.position))
+            session.player.takeContinuousDamage(GameplaySettings::get().lavaDamagePerSecond * step);
+        healthPickups.update(session.player, tileMap, step);
     }
     enemies.update(session, step, worldSize, viewport);
     updateCombat(step);
+    if (session.state == GameState::Playing && level.number == 2
+        && session.elapsed >= GameplaySettings::get().firstLevelDuration) {
+        session.state = GameState::Victory;
+        session.player.velocity = {};
+        return;
+    }
     if (level.update(session, step)) { enterSecondLevel(); return; }
     if (session.state == GameState::Playing && step > 0) {
         for (UpgradePickup& pickup : combat.pickups) {
@@ -193,9 +272,12 @@ void Game::updateCombat(float dt) {
     combat.update(dt);
     playerShots.update(dt);
     enemyShots.update(dt);
+    manualShots.update(dt);
     combat.resolve(session.player, enemies, playerShots, enemyShots);
+    combat.resolveManual(enemies, manualShots);
     playerShots.recycle(worldSize, selectedMode == CameraMode::Fixed);
     enemyShots.recycle(worldSize, selectedMode == CameraMode::Fixed);
+    manualShots.recycle(worldSize, selectedMode == CameraMode::Fixed);
     if (session.player.health <= 0) {
         session.state = GameState::GameOver;
         session.player.velocity = {};
@@ -216,12 +298,27 @@ void Game::updateCombat(float dt) {
             playerShootCooldown = session.player.attackInterval;
         }
     }
+    const float manualInterval = GameplaySettings::get().manualAttackInterval
+        * session.player.attackInterval / GameplaySettings::get().attackInterval;
+    manualShootCooldown = ClampValue(manualShootCooldown - dt, 0, manualInterval);
+    Vector2 aim;
+    if (manualAim(canvas, session.camera.worldToScreen(session.player.position), aim)
+        && manualShootCooldown <= 0) {
+        manualShots.spawn(session.player.position, aim, GameplaySettings::get().manualProjectile.speed,
+            GameplaySettings::get().manualProjectile.lifetime, GameplaySettings::get().manualProjectile.damage,
+            GameplaySettings::get().manualProjectile.radius);
+        manualShootCooldown = manualInterval;
+    }
     enemies.shootAtPlayer(session.player.position, dt, enemyShots);
 }
 
 void Game::drawProjectiles() {
     drawShotPool(canvas, session.camera, playerShots, 255, 245, 110);
     drawShotPool(canvas, session.camera, enemyShots, 255, 80, 50);
+    for (unsigned int i = 0; i < GameConfig::MaxManualProjectiles; ++i) {
+        const Projectile& shot = manualShots.at(i);
+        if (shot.active) enemySprites.drawManualBomb(canvas, session.camera.worldToScreen(shot.position));
+    }
 }
 
 void Game::drawEnemies() {
@@ -252,7 +349,7 @@ void Game::drawEnemies() {
 }
 
 void Game::drawPlayer() {
-    if (session.player.invulnerability > 0 && int(session.player.invulnerability * 24) % 2 == 1) return;
+    if (session.player.damageFeedback > 0 && int(session.player.damageAnimationTime * 24) % 2 == 1) return;
     const Vector2 screen = session.camera.worldToScreen(session.player.position);
     constexpr int height = 48;
     const int width = int(playerImage.width * height / playerImage.height);
@@ -282,6 +379,12 @@ void Game::drawPlayer() {
 }
 
 void Game::drawCombat() {
+    for (unsigned int i = 0; i < GameConfig::MaxHealthPickups; ++i) {
+        const HealthPickup& pickup = healthPickups.at(i);
+        if (pickup.active) enemySprites.drawHealthPickup(canvas, session.camera.worldToScreen(pickup.position));
+    }
+    for (const HitEffect& hit : combat.hitEffects)
+        if (hit.remaining > 0) enemySprites.drawBombHit(canvas, session.camera.worldToScreen(hit.position));
     for (const UpgradePickup& pickup : combat.pickups) {
         if (!pickup.active) continue;
         const Vector2 screen = session.camera.worldToScreen(pickup.position);
@@ -297,27 +400,25 @@ void Game::drawCombat() {
     for (unsigned int i = 0; i < combat.targetCount; ++i) {
         const Vector2 screen = session.camera.worldToScreen(combat.targetPositions[i]);
         // Store positions rather than enemy slots: lethal hits and slot reuse keep valid feedback.
-        constexpr int radius = 26;
-        for (int y = -radius; y <= radius; ++y)
-            for (int x = -radius; x <= radius; ++x) {
-                const int distance = x*x + y*y;
-                const int px = int(screen.x) + x, py = int(screen.y) + y;
-                if (distance <= radius*radius && distance >= (radius-2)*(radius-2)
-                    && px >= 0 && py >= 0 && px < int(canvas.getWidth()) && py < int(canvas.getHeight()))
-                    canvas.draw(px, py, 100, 255, 255);
-            }
-        Hud::text(canvas, int(screen.x) - 17, int(screen.y) - 8, "AOE");
+        enemySprites.drawAoe(canvas, screen, CombatConfig::FeedbackTime - combat.feedbackTime);
     }
 }
 
 void Game::drawHud() {
-    const int panelHeight = showCollider ? 206 : 134;
+    const int panelHeight = showCollider ? 230 : 158;
     // Move the overlay out of the way when the player reaches the top edge.
     const int panelY = session.state != GameState::Menu
         && session.camera.worldToScreen(session.player.position).y < panelHeight + 24
         ? int(canvas.getHeight()) - panelHeight : 0;
+    const unsigned char background[] = {20, 24, 32};
+    constexpr unsigned int alpha = 204; // 0.8 opacity, 20% of the scene remains visible.
     for (int y = 0; y < panelHeight; ++y)
-        for (unsigned int x = 0; x < canvas.getWidth(); ++x) canvas.draw(x, panelY + y, 20, 24, 32);
+        for (unsigned int x = 0; x < canvas.getWidth(); ++x) {
+            auto* pixel = canvas.backBuffer() + ((panelY + y) * canvas.getWidth() + x) * 3;
+            for (int channel = 0; channel < 3; ++channel)
+                pixel[channel] = static_cast<unsigned char>((background[channel] * alpha
+                    + pixel[channel] * (255 - alpha)) / 255);
+        }
     if (session.state == GameState::Menu) {
         Hud::text(canvas, 16, panelY + 12, "BALATRONT - ENTER TO START / ESC TO QUIT");
         Hud::text(canvas, 16, panelY + 36, "WASD MOVE / AUTO FIRE - USE ENGLISH INPUT");
@@ -329,22 +430,30 @@ void Game::drawHud() {
     } else {
         char status[128];
         const bool onRoad = tileMap.isRoad(session.player.position);
+        const bool onLava = tileMap.isLava(session.player.position);
         std::snprintf(status, sizeof(status), "HP %.0f  X %.1f  Y %.1f  TIME %.1f  FPS %.0f  %s SPD %.0f",
             session.player.health, session.player.position.x, session.player.position.y, session.elapsed, fps,
-            onRoad ? "ROAD" : "GRASS", session.player.speed * (onRoad ? GameplaySettings::get().roadMultiplier : 1.0f));
+            onLava ? "LAVA" : onRoad ? "ROAD" : "GRASS",
+            session.player.speed * (onRoad ? GameplaySettings::get().roadMultiplier : 1.0f));
         Hud::text(canvas, 16, panelY + 12, status);
         Hud::text(canvas, 16, panelY + 36, session.state == GameState::Paused
-            ? "PAUSED - ESC OR ENTER TO RESUME / Q TO QUIT"
+            ? "PAUSED - ESC/ENTER RESUME / F5 SAVE / F9 LOAD / Q QUIT"
             : session.state == GameState::GameOver ? "GAME OVER - ENTER RESTART / ESC QUIT"
-            : "WASD MOVE / AUTO FIRE / SPACE AOE / ESC PAUSE / F1 DEBUG");
-        std::snprintf(status, sizeof(status), "AOE %.1f S  N %u  SHOT %.3f S  KILLS %u",
-            combat.aoeCooldown, session.player.aoeTargets, session.player.attackInterval, combat.kills);
+            : session.state == GameState::Victory ? "VICTORY - ENTER RESTART / ESC QUIT"
+            : "WASD MOVE / MOUSE OR RIGHT STICK BOMB / SPACE AOE / ESC PAUSE");
+        const float manualInterval = GameplaySettings::get().manualAttackInterval
+            * session.player.attackInterval / GameplaySettings::get().attackInterval;
+        std::snprintf(status, sizeof(status), "AOE %.1f S N %u  SHOT %.3f S  BOMB %.3f S  KILLS %u",
+            combat.aoeCooldown, session.player.aoeTargets, session.player.attackInterval,
+            manualInterval, combat.kills);
         Hud::text(canvas, 16, panelY + 60, status);
         Hud::text(canvas, 16, panelY + 84, combat.upgradeFeedback > 0
             ? (combat.lastUpgradeSpeed ? "FAST DEAL COLLECTED" : "FULL HOUSE COLLECTED")
             : "PICK UP F FOR FIRE RATE / N FOR AOE TARGETS");
         if (level.number == 2)
-            std::snprintf(status, sizeof(status), "LEVEL 2 - INFINITE - SEED %u", tileMap.procedural.seed);
+            std::snprintf(status, sizeof(status), "LEVEL 2 - SURVIVE %.1f SECONDS - SEED %u",
+                ClampValue(GameplaySettings::get().firstLevelDuration - session.elapsed, 0,
+                    GameplaySettings::get().firstLevelDuration), tileMap.procedural.seed);
         else if (level.portalOpen)
             std::snprintf(status, sizeof(status), "LEVEL 1 - PORTAL OPEN AT %.0f %.0f",
                 level.portalPosition.x, level.portalPosition.y);
@@ -355,19 +464,54 @@ void Game::drawHud() {
             std::snprintf(status, sizeof(status), "NPC %u/256  SPAWN %.2f  IN %u  OUT %u  SKIP %u",
                 enemies.activeCount(), EnemyManager::spawnInterval(session.elapsed), enemies.insideCount,
                 enemies.outsideCount, enemies.capacitySkips + enemies.locationSkips);
-            Hud::text(canvas, 16, panelY + 132, status);
+            Hud::text(canvas, 16, panelY + 156, status);
             const auto& stats = GameplaySettings::get().enemies;
             std::snprintf(status, sizeof(status), "G %u HP%.0f  S %u HP%.0f  B %u HP%.0f  T %u HP%.0f",
                 enemies.typeCounts[0], stats[0].health, enemies.typeCounts[1], stats[1].health,
                 enemies.typeCounts[2], stats[2].health, enemies.typeCounts[3], stats[3].health);
-            Hud::text(canvas, 16, panelY + 156, status);
+            Hud::text(canvas, 16, panelY + 180, status);
             std::snprintf(status, sizeof(status), "SHOTS PLAYER %u/%u  ENEMY %u/%u  SKIP %u",
                 playerShots.activeCount(), GameConfig::MaxPlayerProjectiles,
                 enemyShots.activeCount(), GameConfig::MaxEnemyProjectiles,
                 playerShots.skippedCount() + enemyShots.skippedCount());
-            Hud::text(canvas, 16, panelY + 180, status);
+            Hud::text(canvas, 16, panelY + 204, status);
         }
     }
+    Hud::text(canvas, 16, panelY + 132, saveMessageTime > 0 ? saveMessage : "F5 SAVE / F9 LOAD" );
+}
+
+unsigned int Game::score() const {
+    return combat.kills * 10 + combat.upgradesCollected * 100
+        + static_cast<unsigned int>(session.player.health + 0.5f) * 5;
+}
+
+const char* Game::grade() const {
+    const unsigned int value = score();
+    return value >= 5000 ? "SSS" : value >= 3000 ? "SS" : value >= 1500 ? "S" : "A";
+}
+
+void Game::drawResult() {
+    if (session.state != GameState::Victory && session.state != GameState::GameOver) return;
+    const int left = int(canvas.getWidth()) / 2 - 260;
+    const int top = int(canvas.getHeight()) / 2 - 105;
+    for (int y = top; y < top + 210; ++y)
+        for (int x = left; x < left + 520; ++x) {
+            auto* pixel = canvas.backBuffer() + (y * canvas.getWidth() + x) * 3;
+            for (int channel = 0; channel < 3; ++channel)
+                pixel[channel] = static_cast<unsigned char>(pixel[channel] * 25 / 255);
+        }
+    char text[96];
+    centredText(canvas, top + 24, session.state == GameState::Victory ? "YOU WIN!!" : "YOU LOST...");
+    std::snprintf(text, sizeof(text), "SCORE %u", score());
+    centredText(canvas, top + 60, text);
+    std::snprintf(text, sizeof(text), "KILLS %u  BUFFS %u  HP %.0f",
+        combat.kills, combat.upgradesCollected, session.player.health);
+    centredText(canvas, top + 88, text);
+    if (session.state == GameState::Victory) {
+        std::snprintf(text, sizeof(text), "GRADE %s", grade());
+        centredText(canvas, top + 120, text);
+    }
+    centredText(canvas, top + 164, "ENTER RESTART / ESC QUIT");
 }
 
 void Game::render() {
@@ -385,4 +529,5 @@ void Game::render() {
         drawCombat();
     }
     drawHud();
+    drawResult();
 }

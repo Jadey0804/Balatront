@@ -34,6 +34,13 @@ enemy_projectile.speed 240
 enemy_projectile.lifetime 6
 enemy_projectile.radius 4
 
+# Manual eight-direction bomb. This interval is independent of attack-speed upgrades.
+manual_projectile.damage 25
+manual_projectile.speed 360
+manual_projectile.lifetime 4
+manual_projectile.radius 6
+manual_projectile.attack_interval 0.8
+
 aoe.damage 40
 aoe.cooldown 12
 aoe.initial_targets 3
@@ -47,3 +54,11 @@ upgrade.pickup_radius 18
 # Level transition: appearance time in seconds and trigger radius in pixels.
 level1.duration 120
 portal.radius 18
+
+# Health pickups and lava terrain.
+health_pickup.heal 25
+health_pickup.spawn_interval 20
+health_pickup.lifetime 15
+health_pickup.spawn_radius 500
+health_pickup.pickup_radius 16
+lava.damage_per_second 6

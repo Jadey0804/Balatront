@@ -9,9 +9,9 @@
 # sprinter uses fly as its movement animation. Static idle poses do not require animation playback.
 # Loaded at startup. The build uses Balatront/Resources/Sprites/sprites.txt and copies it beside the executable.
 
-goblin       walk    "Sprites/Pack 01/Characters(100x100 split)/Orc/Orc/Orc_Walk.png"                  100    100    8      10  3     1
-goblin       attack  "Sprites/Pack 01/Characters(100x100 split)/Orc/Orc/Orc_Attack01.png"              100    100    6      12  3     0
-goblin       death   "Sprites/Pack 01/Characters(100x100 split)/Orc/Orc/Orc_Death.png"                 100    100    4      8   3     0
+goblin       walk    "Sprites/Pack 01/Characters(100x100 split)/Orc/Orc/Orc_Walk.png"                  100    100    8      10  2     1
+goblin       attack  "Sprites/Pack 01/Characters(100x100 split)/Orc/Orc/Orc_Attack01.png"              100    100    6      12  2     0
+goblin       death   "Sprites/Pack 01/Characters(100x100 split)/Orc/Orc/Orc_Death.png"                 100    100    4      8   2     0
 
 sprinter     attack  "Sprites/Monsters Creatures Fantasy 2/Bat/attack.png"                            87     87     11     10  1   0
 sprinter     hurt    "Sprites/Monsters Creatures Fantasy 2/Bat/hurt.png"                              87     87     3      10  1   0
@@ -21,8 +21,12 @@ sprinter     fly     "Sprites/Monsters Creatures Fantasy 2/Bat/fly.png"         
 turretBody   idle    "Sprites/kenney_pixelshmup/Tiles/tile_0029.png"                                   16     16     1      0   3     0
 turretPipe   idle    "Sprites/kenney_pixelshmup/Tiles/tile_0030.png"                                   16     16     1      0   3     0
 
-brute        walk    "Sprites/Fire golem Asset/Walk.png"                                              64     64     8      10  2     1
-brute        hurt    "Sprites/Fire golem Asset/Hurt.png"                                              64     64     1      0   2     0
-brute        death   "Sprites/Fire golem Asset/Death.png"                                             64     64     7      10  2     0
+brute        walk    "Sprites/Fire golem Asset/Walk.png"                                              64     64     8      10  3     1
+brute        hurt    "Sprites/Fire golem Asset/Hurt.png"                                              64     64     1      0   3     0
+brute        death   "Sprites/Fire golem Asset/Death.png"                                             64     64     7      10  3     0
 
 portal       idle    "Sprites/Dimensional_Portal.png"    32    32    6    8    2    1
+aoe          idle    "Sprites/kenney_pixelshmup/Tiles/Tile_0005.png"    16    16    1    0    3    0
+manualBomb   idle    "Sprites/weapons/bomb.png"                          24    24    1    0    1    0
+healthPickup idle    "Sprites/weapons/drug.png"                          24    24    1    0    1    0
+bombHit      idle    "Sprites/kenney_pixelshmup/Tiles/tile_0007.png"     16    16    1    0    2    0

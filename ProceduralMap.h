@@ -24,6 +24,10 @@ public:
             result.images[3]=b ? (r?20:18) : (r?19:14);
             return result;
         }
+        if (lava(x, y)) {
+            for (unsigned int& id : result.images) id = 24;
+            return result;
+        }
         const unsigned int mask=unsigned(roadVertex(x,y)) | (unsigned(roadVertex(x+1,y))<<1)
             | (unsigned(roadVertex(x,y+1))<<2) | (unsigned(roadVertex(x+1,y+1))<<3);
         static constexpr unsigned int ids[16]={0,23,3,8,2,4,0,5,1,0,7,9,12,6,11,13};
@@ -36,7 +40,29 @@ public:
     }
 
     unsigned int tile(int x,int y) const {
-        return water(x,y) ? 14 : appearance(x,y).images[0];
+        return appearance(x,y).images[0];
+    }
+
+    bool lava(int x, int y) const {
+        const int col = floorDivide(x, RegionSize), row = floorDivide(y, RegionSize);
+        std::uint32_t random = hash(col ^ 0x6a91, row ^ 0x24d7);
+        const bool hasPool = next(random) % 4 != 0;
+        const float cx = float(12 + next(random) % 40), cy = float(12 + next(random) % 40);
+        const float rx = float(8 + next(random) % 7), ry = float(6 + next(random) % 7);
+        const float px = float(x - col * RegionSize) + 0.5f;
+        const float py = float(y - row * RegionSize) + 0.5f;
+        const float side = next(random) % 2 ? 1.0f : -1.0f;
+        bool hot = hasPool && (ellipse(px, py, cx, cy, rx, ry)
+            || ellipse(px, py, cx + side * rx * 0.55f, cy + ry * 0.3f, rx * 0.7f, ry * 0.75f)
+            || ellipse(px, py, cx - side * rx * 0.45f, cy - ry * 0.45f, rx * 0.55f, ry * 0.65f));
+        if (next(random) % 3 != 0
+            && ellipse(px, py, cx + side * rx * 0.7f, cy - ry * 0.8f, rx * 0.5f, ry * 0.45f))
+            hot = false;
+        if (!hot || water(x, y)) return false;
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (roadVertex(x + dx, y + dy)) return false;
+        return true;
     }
 
     bool water(int x,int y) const {

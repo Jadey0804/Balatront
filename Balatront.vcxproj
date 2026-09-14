@@ -141,6 +141,8 @@
     <ClInclude Include="Gameplay.h" />
     <ClInclude Include="GameplaySettings.h" />
     <ClInclude Include="LevelFlow.h" />
+    <ClInclude Include="SaveGame.h" />
+    <ClInclude Include="HealthPickups.h" />
     <ClInclude Include="Hud.h" />
     <ClInclude Include="GamesEngineeringBase.h" />
   </ItemGroup>
