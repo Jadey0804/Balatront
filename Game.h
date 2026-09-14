@@ -4,6 +4,7 @@
 #include "Enemies.h"
 #include "Combat.h"
 #include "TileMap.h"
+#include "EnemySprites.h"
 
 // Owns the framework window/resources and delegates simulation to PlaySession.
 class Game {
@@ -15,6 +16,7 @@ private:
     GamesEngineeringBase::Image playerImage;
     PlaySession session;
     EnemyManager enemies;
+    EnemySprites enemySprites;
     PlayerProjectilePool playerShots;
     EnemyProjectilePool enemyShots;
     Combat combat;
@@ -28,7 +30,6 @@ private:
     bool previousEscape = false;
     bool previousEnter = false;
     bool previousDebug = false;
-    bool previousShoot = false;
     bool previousAoe = false;
     bool showCollider = false;
     bool running = true;

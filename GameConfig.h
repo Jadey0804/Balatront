@@ -14,7 +14,7 @@ namespace GameConfig {
     constexpr unsigned int MaxMapWidth = 80;
     constexpr unsigned int MaxMapHeight = 60;
     constexpr unsigned int TileSize = 32;
-    constexpr float RoadSpeedMultiplier = 1.5f;
+
     constexpr unsigned int CardCount = 8;
     constexpr unsigned int MaxOwnedCards = 16;
     // Provisional storage ceiling; gameplay balancing belongs to phase 4.

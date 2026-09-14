@@ -1,0 +1,45 @@
+# Player: health, speed in pixels/second, collision radius in pixels, times in seconds.
+player.health 100
+player.speed 180
+player.radius 14
+player.invulnerability 0.35
+player.attack_interval 0.35
+player.road_multiplier 1.5
+
+# Enemy keys match sprites.txt; turret is the complete enemy, not a visual part.
+goblin.health 35
+goblin.speed 85
+goblin.contact_damage 10
+goblin.radius 14
+sprinter.health 18
+sprinter.speed 145
+sprinter.contact_damage 7
+sprinter.radius 11
+brute.health 120
+brute.speed 48
+brute.contact_damage 20
+brute.radius 21
+turret.health 65
+turret.speed 0
+turret.contact_damage 12
+turret.radius 16
+turret.attack_interval 1.8
+
+player_projectile.damage 20
+player_projectile.speed 480
+player_projectile.lifetime 4
+player_projectile.radius 3
+enemy_projectile.damage 12
+enemy_projectile.speed 240
+enemy_projectile.lifetime 6
+enemy_projectile.radius 4
+
+aoe.damage 40
+aoe.cooldown 12
+aoe.initial_targets 3
+aoe.max_targets 256
+upgrade.kills_per_drop 5
+upgrade.attack_interval_multiplier 0.85
+upgrade.min_attack_interval 0.08
+upgrade.aoe_targets_added 1
+upgrade.pickup_radius 18

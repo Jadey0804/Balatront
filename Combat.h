@@ -2,13 +2,8 @@
 #include "Enemies.h"
 
 namespace CombatConfig {
-    constexpr float AoeDamage = 40;
-    constexpr float AoeCooldown = 12;
     constexpr float FeedbackTime = 0.4f;
-    constexpr float MinAttackInterval = 0.08f;
     constexpr unsigned int MaxPickups = 64;
-    constexpr unsigned int KillsPerPickup = 5;
-    constexpr float PickupRadius = 18;
 }
 
 struct UpgradePickup {
@@ -47,7 +42,7 @@ struct Combat {
     bool lastUpgradeSpeed = true;
 
     void update(float dt) {
-        aoeCooldown = ClampValue(aoeCooldown - dt, 0, CombatConfig::AoeCooldown);
+        aoeCooldown = ClampValue(aoeCooldown - dt, 0, GameplaySettings::get().aoeCooldown);
         feedbackTime = ClampValue(feedbackTime - dt, 0, CombatConfig::FeedbackTime);
         upgradeFeedback = ClampValue(upgradeFeedback - dt, 0, 2);
     }
@@ -55,11 +50,11 @@ struct Combat {
     void damageEnemy(EnemyManager& enemies, unsigned int index, float amount) {
         if (!enemies.damage(index, amount)) return;
         ++kills;
-        if (kills % CombatConfig::KillsPerPickup != 0) return;
+        if (kills % GameplaySettings::get().killsPerDrop != 0) return;
         for (UpgradePickup& pickup : pickups) {
             if (pickup.active) continue;
             pickup = {true, enemies.at(index).position,
-                (kills / CombatConfig::KillsPerPickup) % 2 == 1};
+                (kills / GameplaySettings::get().killsPerDrop) % 2 == 1};
             return;
         }
         ++skippedPickups;
@@ -71,11 +66,15 @@ struct Combat {
             if (!pickup.active) continue;
             float fraction;
             if (!CircleSweep(player.previousPosition, player.position, pickup.position,
-                pickup.position, player.radius + CombatConfig::PickupRadius, fraction)) continue;
+                pickup.position, player.radius + GameplaySettings::get().pickupRadius, fraction)) continue;
             if (pickup.attackSpeed)
-                player.attackInterval = ClampValue(player.attackInterval * 0.85f,
-                    CombatConfig::MinAttackInterval, player.attackInterval);
-            else if (player.aoeTargets < GameConfig::MaxAoeTargets) ++player.aoeTargets;
+                player.attackInterval = ClampValue(player.attackInterval * GameplaySettings::get().attackMultiplier,
+                    GameplaySettings::get().minAttackInterval, player.attackInterval);
+            else {
+                const unsigned int limit = GameplaySettings::get().maxTargets;
+                const unsigned int increased = player.aoeTargets + GameplaySettings::get().targetsAdded;
+                player.aoeTargets = increased < limit ? increased : limit;
+            }
             lastUpgradeSpeed = pickup.attackSpeed;
             upgradeFeedback = 2;
             pickup.active = false;
@@ -102,8 +101,8 @@ struct Combat {
         }
         if (targetCount == 0) return;
         for (unsigned int i = 0; i < targetCount; ++i)
-            damageEnemy(enemies, indices[i], CombatConfig::AoeDamage);
-        aoeCooldown = CombatConfig::AoeCooldown;
+            damageEnemy(enemies, indices[i], GameplaySettings::get().aoeDamage);
+        aoeCooldown = GameplaySettings::get().aoeCooldown;
         feedbackTime = CombatConfig::FeedbackTime;
     }
 

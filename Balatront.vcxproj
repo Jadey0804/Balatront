@@ -133,20 +133,22 @@
     <ClInclude Include="GameConfig.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="Enemies.h" />
+    <ClInclude Include="EnemySprites.h" />
     <ClInclude Include="Projectiles.h" />
     <ClInclude Include="Combat.h" />
     <ClInclude Include="TileMap.h" />
     <ClInclude Include="ProceduralMap.h" />
     <ClInclude Include="Gameplay.h" />
+    <ClInclude Include="GameplaySettings.h" />
     <ClInclude Include="Hud.h" />
     <ClInclude Include="GamesEngineeringBase.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ItemGroup>
-    <PlaceholderResources Include="Resources\*.png;Resources\*.txt" />
+    <PlaceholderResources Include="Resources\**\*.png;Resources\**\*.txt" />
   </ItemGroup>
   <Target Name="CopyPlaceholderResources" AfterTargets="Build">
-    <Copy SourceFiles="@(PlaceholderResources)" DestinationFolder="$(OutDir)Resources" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PlaceholderResources)" DestinationFiles="@(PlaceholderResources->'$(OutDir)Resources\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

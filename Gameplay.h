@@ -1,6 +1,6 @@
 #pragma once
 #include <cmath>
-#include "GameConfig.h"
+#include "GameplaySettings.h"
 
 // World positions refer to object centres. Screen positions are derived only
 // during rendering; no image dimensions are stored in movement/camera logic.
@@ -17,22 +17,22 @@ struct Player {
     Vector2 position;
     Vector2 previousPosition;
     Vector2 velocity;
-    float health = 100.0f;
-    float speed = 180.0f;
-    float radius = 14.0f;
+    float health = GameplaySettings::get().health;
+    float speed = GameplaySettings::get().speed;
+    float radius = GameplaySettings::get().radius;
     float invulnerability = 0;
-    float attackInterval = 0.35f;
-    unsigned int aoeTargets = 3;
+    float attackInterval = GameplaySettings::get().attackInterval;
+    unsigned int aoeTargets = GameplaySettings::get().initialTargets;
 
     void takeDamage(float damage) {
-        if (invulnerability > 0 || health <= 0) return;
-        health = ClampValue(health - damage, 0, 100);
-        invulnerability = 0.35f;
+        if (damage <= 0 || invulnerability > 0 || health <= 0) return;
+        health = ClampValue(health - damage, 0, GameplaySettings::get().health);
+        invulnerability = GameplaySettings::get().invulnerability;
     }
 
     void update(Vector2 input, float dt, Vector2 worldSize, bool fixedWorld = true, float terrainMultiplier = 1.0f) {
         previousPosition = position;
-        invulnerability = ClampValue(invulnerability - dt, 0, 0.35f);
+        invulnerability = ClampValue(invulnerability - dt, 0, GameplaySettings::get().invulnerability);
         const float length = std::sqrt(input.x * input.x + input.y * input.y);
         // Preserve analog input magnitude; cap diagonal keyboard input to one.
         if (length > 1.0f) { input.x /= length; input.y /= length; }

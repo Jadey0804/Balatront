@@ -2,16 +2,6 @@
 #include "Gameplay.h"
 
 namespace ProjectileConfig {
-    constexpr float PlayerInterval = 0.35f;
-    constexpr float PlayerSpeed = 480.0f;
-    constexpr float PlayerLifetime = 4.0f;
-    constexpr float PlayerDamage = 20.0f;
-    constexpr float PlayerRadius = 3.0f;
-    constexpr float EnemyInterval = 1.8f;
-    constexpr float EnemySpeed = 240.0f;
-    constexpr float EnemyLifetime = 6.0f;
-    constexpr float EnemyDamage = 12.0f;
-    constexpr float EnemyRadius = 4.0f;
     constexpr float WorldMargin = 64.0f;
 }
 

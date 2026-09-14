@@ -42,7 +42,11 @@ namespace {
 bool Game::initialize() {
     nextMapSeed = static_cast<std::uint32_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
     canvas.create(GameConfig::WindowWidth, GameConfig::WindowHeight, "Balatront");
+    if (!GameplaySettings::load("Resources/gameplay.txt")) { startupError = GameplaySettings::error(); return false; }
+    session.player = Player{};
     if (!loadImage(playerImage, "Resources/L.png")) return false;
+    if (!enemySprites.load("Resources/Sprites/sprites.txt")) { startupError = enemySprites.error(); return false; }
+    enemySprites.configure(enemies);
     if (!tileMap.load("Resources/tiles.txt")) { startupError = tileMap.error(); return false; }
     worldSize = tileMap.size();
     if (worldSize.x < viewport.x || worldSize.y < viewport.y) {
@@ -143,7 +147,7 @@ void Game::update(float dt) {
     };
     // A pause/resume/start event consumes no simulation time from the old state.
     const float step = (escapePressed || enterPressed) ? 0.0f : dt;
-    const float terrainMultiplier = tileMap.isRoad(session.player.position) ? GameConfig::RoadSpeedMultiplier : 1.0f;
+    const float terrainMultiplier = tileMap.isRoad(session.player.position) ? GameplaySettings::get().roadMultiplier : 1.0f;
     session.update(input, step, worldSize, viewport, terrainMultiplier);
     if (session.state == GameState::Playing) {
         tileMap.resolveMovement(session.player, step);
@@ -165,9 +169,6 @@ void Game::update(float dt) {
 }
 
 void Game::updateCombat(float dt) {
-    const bool shoot = canvas.mouseButtonPressed(GamesEngineeringBase::MouseLeft);
-    const bool clicked = shoot && !previousShoot;
-    previousShoot = shoot;
     const bool aoe = canvas.keyPressed(VK_SPACE);
     const bool aoeClicked = aoe && !previousAoe;
     previousAoe = aoe;
@@ -186,13 +187,15 @@ void Game::updateCombat(float dt) {
     combat.collect(session.player);
     if (aoeClicked) combat.fireAoe(enemies, session.player.aoeTargets);
     playerShootCooldown = ClampValue(playerShootCooldown - dt, 0, session.player.attackInterval);
-    if (clicked && playerShootCooldown <= 0) {
-        const Vector2 aim = {
-            float(canvas.getMouseX()) + session.camera.position.x - session.player.position.x,
-            float(canvas.getMouseY()) + session.camera.position.y - session.player.position.y
-        };
-        if (playerShots.spawn(session.player.position, aim, ProjectileConfig::PlayerSpeed,
-            ProjectileConfig::PlayerLifetime, ProjectileConfig::PlayerDamage, ProjectileConfig::PlayerRadius)) {
+    if (playerShootCooldown <= 0) {
+        const Enemy* target = enemies.nearest(session.player.position);
+        if (target) {
+            Vector2 aim = {target->position.x - session.player.position.x,
+                target->position.y - session.player.position.y};
+            // Coincident centres still produce a shot for the normal overlap hit check.
+            if (aim.x == 0 && aim.y == 0) aim = {1, 0};
+            playerShots.spawn(session.player.position, aim, GameplaySettings::get().playerProjectile.speed,
+                GameplaySettings::get().playerProjectile.lifetime, GameplaySettings::get().playerProjectile.damage, GameplaySettings::get().playerProjectile.radius);
             playerShootCooldown = session.player.attackInterval;
         }
     }
@@ -207,24 +210,13 @@ void Game::drawProjectiles() {
 void Game::drawEnemies() {
     for (unsigned int i = 0; i < GameConfig::MaxEnemies; ++i) {
         const Enemy& enemy = enemies.at(i);
-        if (!enemy.active) continue;
+        if (!enemy.active && !enemy.dying) continue;
         const EnemyDefinition& stats = EnemyManager::definition(enemy.type);
         const Vector2 screen = session.camera.worldToScreen(enemy.position);
+        enemySprites.draw(canvas, enemy, screen, session.player.position);
+        if (!enemy.active) continue;
         const int height = stats.imageHeight;
-        const int width = int(playerImage.width * height / playerImage.height);
-        const int left = int(screen.x) - width/2, top = int(screen.y) - height/2;
-        if (left + width < 0 || top + height < 0 || left >= int(canvas.getWidth()) || top >= int(canvas.getHeight())) continue;
-        for (int row = 0; row < height; ++row)
-            for (int col = 0; col < width; ++col) {
-                const int x = left + col, y = top + row;
-                if (x < 0 || y < 0 || x >= int(canvas.getWidth()) || y >= int(canvas.getHeight())) continue;
-                const unsigned int sx = col * playerImage.width / width, sy = row * playerImage.height / height;
-                if (playerImage.alphaAtUnchecked(sx, sy) == 0) continue;
-                const unsigned char* pixel = playerImage.atUnchecked(sx, sy);
-                if (enemy.hitFlash > 0) canvas.draw(x, y, 255, 255, 255);
-                else canvas.draw(x, y, pixel[0] * stats.red / 255, pixel[1] * stats.green / 255, pixel[2] * stats.blue / 255);
-            }
-        Hud::text(canvas, left, top - 17, stats.label);
+        const int left = int(screen.x) - int(stats.radius), top = int(screen.y) - height/2;
         if (showCollider) {
             char health[24];
             std::snprintf(health, sizeof(health), "HP %.0f", enemy.health);
@@ -311,7 +303,7 @@ void Game::drawHud() {
         for (unsigned int x = 0; x < canvas.getWidth(); ++x) canvas.draw(x, panelY + y, 20, 24, 32);
     if (session.state == GameState::Menu) {
         Hud::text(canvas, 16, panelY + 12, "BALATRONT - ENTER TO START / ESC TO QUIT");
-        Hud::text(canvas, 16, panelY + 36, "WASD MOVE / LEFT CLICK SHOOT - USE ENGLISH INPUT");
+        Hud::text(canvas, 16, panelY + 36, "WASD MOVE / AUTO FIRE - USE ENGLISH INPUT");
         Hud::text(canvas, 16, panelY + 60, "1 FIXED MAP / 2 RANDOM INFINITE MAP");
         Hud::text(canvas, 16, panelY + 84, selectedMode == CameraMode::Infinite
             ? "SELECTED: INFINITE" : "SELECTED: FIXED");
@@ -320,12 +312,12 @@ void Game::drawHud() {
         const bool onRoad = tileMap.isRoad(session.player.position);
         std::snprintf(status, sizeof(status), "HP %.0f  X %.1f  Y %.1f  TIME %.1f  FPS %.0f  %s SPD %.0f",
             session.player.health, session.player.position.x, session.player.position.y, session.elapsed, fps,
-            onRoad ? "ROAD" : "GRASS", session.player.speed * (onRoad ? GameConfig::RoadSpeedMultiplier : 1.0f));
+            onRoad ? "ROAD" : "GRASS", session.player.speed * (onRoad ? GameplaySettings::get().roadMultiplier : 1.0f));
         Hud::text(canvas, 16, panelY + 12, status);
         Hud::text(canvas, 16, panelY + 36, session.state == GameState::Paused
             ? "PAUSED - ESC OR ENTER TO RESUME / Q TO QUIT"
             : session.state == GameState::GameOver ? "GAME OVER - ENTER RESTART / ESC QUIT"
-            : "WASD MOVE / LEFT CLICK SHOOT / SPACE AOE / ESC PAUSE / F1 DEBUG");
+            : "WASD MOVE / AUTO FIRE / SPACE AOE / ESC PAUSE / F1 DEBUG");
         std::snprintf(status, sizeof(status), "AOE %.1f S  N %u  SHOT %.3f S  KILLS %u",
             combat.aoeCooldown, session.player.aoeTargets, session.player.attackInterval, combat.kills);
         Hud::text(canvas, 16, panelY + 60, status);
@@ -344,8 +336,10 @@ void Game::drawHud() {
                 enemies.activeCount(), EnemyManager::spawnInterval(session.elapsed), enemies.insideCount,
                 enemies.outsideCount, enemies.capacitySkips + enemies.locationSkips);
             Hud::text(canvas, 16, panelY + 132, status);
-            std::snprintf(status, sizeof(status), "G %u HP35  S %u HP18  B %u HP120  T %u HP65",
-                enemies.typeCounts[0], enemies.typeCounts[1], enemies.typeCounts[2], enemies.typeCounts[3]);
+            const auto& stats = GameplaySettings::get().enemies;
+            std::snprintf(status, sizeof(status), "G %u HP%.0f  S %u HP%.0f  B %u HP%.0f  T %u HP%.0f",
+                enemies.typeCounts[0], stats[0].health, enemies.typeCounts[1], stats[1].health,
+                enemies.typeCounts[2], stats[2].health, enemies.typeCounts[3], stats[3].health);
             Hud::text(canvas, 16, panelY + 156, status);
             std::snprintf(status, sizeof(status), "SHOTS PLAYER %u/%u  ENEMY %u/%u  SKIP %u",
                 playerShots.activeCount(), GameConfig::MaxPlayerProjectiles,
