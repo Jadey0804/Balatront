@@ -47,6 +47,7 @@ public:
             else if (!std::strcmp(type,"brute")) group = 2;
             else if (!std::strcmp(type,"turretBody")) group = 3;
             else if (!std::strcmp(type,"turretPipe")) group = 4;
+            else if (!std::strcmp(type,"portal")) group = 5;
             if (!std::strcmp(action,"walk") || !std::strcmp(action,"fly") || !std::strcmp(action,"idle")) state = 0;
             else if (!std::strcmp(action,"attack")) state = 1;
             else if (!std::strcmp(action,"hurt")) state = 2;
@@ -63,7 +64,8 @@ public:
                 std::snprintf(detail, sizeof(detail), "Cannot decode %s %s - use RGB or RGBA PNG", type, action);
                 return fail(detail);
             }
-            if (clip.image.height != h || clip.image.width / frames != w || clip.image.width % frames != 0) {
+            if (clip.image.width % w != 0 || clip.image.height % h != 0
+                || (clip.image.width / w) * (clip.image.height / h) != frames) {
                 std::cerr << "Sprite row " << lineNumber << ": " << fullPath << " actual "
                     << clip.image.width << 'x' << clip.image.height << ", configured frame " << w << 'x' << h
                     << " count " << frames << '\n';
@@ -75,11 +77,14 @@ public:
             lookup[group][state] = int(count++);
         }
         if (!file.eof()) return fail("Sprite row is too long or unreadable");
-        for (int group = 0; group < 5; ++group)
+        for (int group = 0; group < 6; ++group)
             if (lookup[group][0] < 0) return fail("Missing enemy movement or turret idle sprite");
         return true;
     }
     const char* error() const { return errorMessage; }
+    void drawPortal(GamesEngineeringBase::Window& canvas, Vector2 screen, float time) const {
+        drawClip(canvas, clips[lookup[5][0]], screen, time, false, 0, false);
+    }
     void configure(EnemyManager& enemies) const {
         for (unsigned int type = 0; type < EnemyConfig::TypeCount; ++type)
             for (unsigned int action = 0; action < 4; ++action) {
@@ -91,7 +96,10 @@ public:
         const int group = static_cast<int>(enemy.type);
         const int action = static_cast<int>(enemy.animation);
         const int index = lookup[group][action] >= 0 ? lookup[group][action] : lookup[group][0];
-        drawClip(canvas, clips[index], screen, enemy.animationTime, enemy.faceLeft && group != 3, 0,
+        bool flip = enemy.faceLeft && group != 3;
+        // Brute's walk sheet faces left by default, unlike the other clips.
+        if (enemy.type == EnemyType::Brute && index == lookup[group][0]) flip = !flip;
+        drawClip(canvas, clips[index], screen, enemy.animationTime, flip, 0,
             enemy.active && enemy.hitFlash > 0 && lookup[group][2] < 0);
         if (group == 3 && enemy.active) {
             // The supplied pipe points down; its 16x16 canvas centre is the mounting pivot.
@@ -101,7 +109,7 @@ public:
     }
 private:
     SpriteClip clips[MaxClips];
-    int lookup[5][4];
+    int lookup[6][4];
     unsigned int count = 0;
     const char* errorMessage = "Sprite loading failed";
     char detail[128] = {};
@@ -123,10 +131,12 @@ private:
             for (int x = left; x < right; ++x) {
                 const float dx = x+0.5f-centre.x, dy = y+0.5f-centre.y;
                 int sx = int(std::floor((c*dx+s*dy)/clip.scale + clip.width*0.5f));
-                const int sy = int(std::floor((-s*dx+c*dy)/clip.scale + clip.height*0.5f));
+                int sy = int(std::floor((-s*dx+c*dy)/clip.scale + clip.height*0.5f));
                 if (sx < 0 || sy < 0 || sx >= int(clip.width) || sy >= int(clip.height)) continue;
                 if (flip) sx = int(clip.width)-1-sx;
-                sx += frame * clip.width;
+                const unsigned int columns = clip.image.width / clip.width;
+                sx += (frame % columns) * clip.width;
+                sy += (frame / columns) * clip.height;
                 const unsigned int alpha = clip.image.alphaAtUnchecked(sx,sy);
                 if (!alpha) continue;
                 const auto* source = clip.image.atUnchecked(sx,sy);

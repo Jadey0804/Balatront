@@ -140,6 +140,7 @@
     <ClInclude Include="ProceduralMap.h" />
     <ClInclude Include="Gameplay.h" />
     <ClInclude Include="GameplaySettings.h" />
+    <ClInclude Include="LevelFlow.h" />
     <ClInclude Include="Hud.h" />
     <ClInclude Include="GamesEngineeringBase.h" />
   </ItemGroup>

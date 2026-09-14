@@ -29,6 +29,7 @@
     <ClInclude Include="Game.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="Enemies.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="GameplaySettings.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="LevelFlow.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="EnemySprites.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="Projectiles.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="Combat.h"><Filter>头文件</Filter></ClInclude>

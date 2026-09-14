@@ -3,7 +3,7 @@ player.health 100
 player.speed 180
 player.radius 14
 player.invulnerability 0.35
-player.attack_interval 0.35
+player.attack_interval 0.5
 player.road_multiplier 1.5
 
 # Enemy keys match sprites.txt; turret is the complete enemy, not a visual part.
@@ -25,7 +25,7 @@ turret.contact_damage 12
 turret.radius 16
 turret.attack_interval 1.8
 
-player_projectile.damage 20
+player_projectile.damage 12
 player_projectile.speed 480
 player_projectile.lifetime 4
 player_projectile.radius 3
@@ -43,3 +43,7 @@ upgrade.attack_interval_multiplier 0.85
 upgrade.min_attack_interval 0.08
 upgrade.aoe_targets_added 1
 upgrade.pickup_radius 18
+
+# Level transition: appearance time in seconds and trigger radius in pixels.
+level1.duration 120
+portal.radius 18

@@ -1,6 +1,6 @@
 # Type       Action  ImagePath                                                                     FrameW FrameH Frames FPS Scale Loop
 # Paths are relative to Resources. Quote paths containing spaces.
-# Animation sheets use a single horizontal row. Loop: 1 = repeat, 0 = play once.
+# Animation sheets use a regular grid, read left-to-right then top-to-bottom. Loop: 1 = repeat, 0 = play once.
 # Static images: Frames = 1, FPS = 0, Loop = 0. Scale applies to the full frame, including transparent padding.
 # Type mapping: goblin -> Grunt; sprinter -> Sprinter; brute -> Brute.
 # turretBody and turretPipe are two visual parts of the same Turret enemy.
@@ -24,3 +24,5 @@ turretPipe   idle    "Sprites/kenney_pixelshmup/Tiles/tile_0030.png"            
 brute        walk    "Sprites/Fire golem Asset/Walk.png"                                              64     64     8      10  2     1
 brute        hurt    "Sprites/Fire golem Asset/Hurt.png"                                              64     64     1      0   2     0
 brute        death   "Sprites/Fire golem Asset/Death.png"                                             64     64     7      10  2     0
+
+portal       idle    "Sprites/Dimensional_Portal.png"    32    32    6    8    2    1

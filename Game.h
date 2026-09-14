@@ -5,6 +5,7 @@
 #include "Combat.h"
 #include "TileMap.h"
 #include "EnemySprites.h"
+#include "LevelFlow.h"
 
 // Owns the framework window/resources and delegates simulation to PlaySession.
 class Game {
@@ -20,11 +21,12 @@ private:
     PlayerProjectilePool playerShots;
     EnemyProjectilePool enemyShots;
     Combat combat;
+    LevelFlow level;
     float playerShootCooldown = 0;
     Vector2 worldSize;
     Vector2 spawnPosition;
     const char* startupError = "Resource loading failed";
-    CameraMode selectedMode = CameraMode::Infinite;
+    CameraMode selectedMode = CameraMode::Fixed;
     std::uint32_t nextMapSeed = 1;
     const Vector2 viewport = {float(GameConfig::WindowWidth), float(GameConfig::WindowHeight)};
     bool previousEscape = false;
@@ -37,6 +39,7 @@ private:
 
     bool initialize();
     void startSession();
+    void enterSecondLevel();
     void update(float dt);
     void updateCombat(float dt);
     void drawCombat();

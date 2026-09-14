@@ -96,12 +96,10 @@ int Game::run() {
 }
 
 void Game::startSession() {
+    selectedMode = CameraMode::Fixed;
+    level.reset(worldSize);
     tileMap.mode = selectedMode;
     session.camera.mode = selectedMode;
-    if (selectedMode == CameraMode::Infinite) {
-        nextMapSeed = nextMapSeed * 1664525u + 1013904223u;
-        tileMap.procedural.seed = nextMapSeed;
-    }
     if (!tileMap.findSpawn(session.player.radius, spawnPosition)) { running = false; return; }
     session.start(worldSize, viewport);
     session.player.position = session.player.previousPosition = spawnPosition;
@@ -115,11 +113,29 @@ void Game::startSession() {
         << " map; seed " << tileMap.procedural.seed << '\n';
 }
 
+void Game::enterSecondLevel() {
+    selectedMode = CameraMode::Infinite;
+    tileMap.mode = session.camera.mode = selectedMode;
+    nextMapSeed = nextMapSeed * 1664525u + 1013904223u;
+    tileMap.procedural.seed = nextMapSeed;
+    if (!tileMap.findSpawn(session.player.radius, spawnPosition)) { running = false; return; }
+    // Preserve health, upgrades and cooldowns; replace the battlefield only.
+    session.player.position = session.player.previousPosition = spawnPosition;
+    session.player.velocity = {};
+    session.camera.follow(spawnPosition, worldSize, viewport);
+    session.elapsed = 0;
+    enemies.reset(nextMapSeed);
+    playerShots.reset();
+    enemyShots.reset();
+    for (UpgradePickup& pickup : combat.pickups) pickup = UpgradePickup{};
+    combat.targetCount = 0;
+    combat.feedbackTime = combat.upgradeFeedback = 0;
+    level.number = 2;
+    level.portalOpen = false;
+    level.portalTime = 0;
+}
+
 void Game::update(float dt) {
-    if (session.state == GameState::Menu || session.state == GameState::GameOver) {
-        if (canvas.keyPressed('1')) selectedMode = CameraMode::Fixed;
-        if (canvas.keyPressed('2')) selectedMode = CameraMode::Infinite;
-    }
     const bool escape = canvas.keyPressed(VK_ESCAPE);
     const bool enter = canvas.keyPressed(VK_RETURN);
     const bool debug = canvas.keyPressed(VK_F1);
@@ -155,6 +171,7 @@ void Game::update(float dt) {
     }
     enemies.update(session, step, worldSize, viewport);
     updateCombat(step);
+    if (level.update(session, step)) { enterSecondLevel(); return; }
     if (session.state == GameState::Playing && step > 0) {
         for (UpgradePickup& pickup : combat.pickups) {
             if (!pickup.active) continue;
@@ -304,9 +321,11 @@ void Game::drawHud() {
     if (session.state == GameState::Menu) {
         Hud::text(canvas, 16, panelY + 12, "BALATRONT - ENTER TO START / ESC TO QUIT");
         Hud::text(canvas, 16, panelY + 36, "WASD MOVE / AUTO FIRE - USE ENGLISH INPUT");
-        Hud::text(canvas, 16, panelY + 60, "1 FIXED MAP / 2 RANDOM INFINITE MAP");
-        Hud::text(canvas, 16, panelY + 84, selectedMode == CameraMode::Infinite
-            ? "SELECTED: INFINITE" : "SELECTED: FIXED");
+        char instructions[96];
+        std::snprintf(instructions, sizeof(instructions), "LEVEL 1: SURVIVE %.0f SECONDS IN THE FIXED MAP",
+            GameplaySettings::get().firstLevelDuration);
+        Hud::text(canvas, 16, panelY + 60, instructions);
+        Hud::text(canvas, 16, panelY + 84, "ENTER THE CENTRE PORTAL TO REACH LEVEL 2");
     } else {
         char status[128];
         const bool onRoad = tileMap.isRoad(session.player.position);
@@ -324,12 +343,13 @@ void Game::drawHud() {
         Hud::text(canvas, 16, panelY + 84, combat.upgradeFeedback > 0
             ? (combat.lastUpgradeSpeed ? "FAST DEAL COLLECTED" : "FULL HOUSE COLLECTED")
             : "PICK UP F FOR FIRE RATE / N FOR AOE TARGETS");
-        if (session.state == GameState::GameOver)
-            std::snprintf(status, sizeof(status), "1 FIXED / 2 INFINITE - NEXT: %s",
-                selectedMode == CameraMode::Infinite ? "INFINITE" : "FIXED");
-        else if (selectedMode == CameraMode::Infinite)
-            std::snprintf(status, sizeof(status), "INFINITE - SEED %u", tileMap.procedural.seed);
-        else std::snprintf(status, sizeof(status), "FIXED - RESOURCES/TILES.TXT");
+        if (level.number == 2)
+            std::snprintf(status, sizeof(status), "LEVEL 2 - INFINITE - SEED %u", tileMap.procedural.seed);
+        else if (level.portalOpen)
+            std::snprintf(status, sizeof(status), "LEVEL 1 - PORTAL OPEN AT %.0f %.0f",
+                level.portalPosition.x, level.portalPosition.y);
+        else std::snprintf(status, sizeof(status), "LEVEL 1 - PORTAL IN %.1f SECONDS",
+            ClampValue(GameplaySettings::get().firstLevelDuration - session.elapsed, 0, GameplaySettings::get().firstLevelDuration));
         Hud::text(canvas, 16, panelY + 108, status);
         if (showCollider) {
             std::snprintf(status, sizeof(status), "NPC %u/256  SPAWN %.2f  IN %u  OUT %u  SKIP %u",
@@ -354,6 +374,11 @@ void Game::render() {
     canvas.clear();
     tileMap.draw(canvas, session.camera);
     if (session.state != GameState::Menu) {
+        if (level.portalOpen) {
+            const Vector2 screen = session.camera.worldToScreen(level.portalPosition);
+            enemySprites.drawPortal(canvas, screen, level.portalTime);
+            Hud::text(canvas, int(screen.x) - 35, int(screen.y) - 48, "PORTAL");
+        }
         drawEnemies();
         drawPlayer();
         drawProjectiles();

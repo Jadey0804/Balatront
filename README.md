@@ -1,6 +1,6 @@
 # Balatront
 
-课程 GamesEngineeringBase 工程。阶段5/6地图及道路加速已提交为86c1496；当前新增自动攻击，尚未提交。
+课程 GamesEngineeringBase 工程。当前阶段7实现有限地图到无限地图的传送门流程，详见 PHASE7_AUDIT.md。
 
 ## 构建和运行
 
@@ -9,7 +9,7 @@
 1. 使用安装了 C++ 桌面开发工具和 Windows SDK 的 Visual Studio 2022 打开本目录 Balatront.sln。
 2. 选择 x64、Debug 或 Release，生成解决方案。
 3. 从 Visual Studio 启动，或在生成的 EXE 所在目录启动 EXE。生成会自动复制 Resources 子目录。
-4. 使用英文输入模式，菜单1选择有限地图、2选择随机无限地图（默认），Enter开始。WASD移动，Esc暂停/恢复，暂停时Q退出，F1显示碰撞范围。死亡后可重新选模式并Enter重开。
+4. 使用英文输入模式，Enter从有限地图开始。坚持120秒后地图中心出现传送门，接触后进入第二关随机无限地图。WASD移动，Esc暂停/恢复，暂停时Q退出，F1显示碰撞范围。死亡后Enter从第一关重开。
 5. HUD 显示 HP、位置、时间、FPS 和状态。中文输入法可能拦截 WASD，请先切换英文模式。
 6. 敌人自动生成：G普通追击使用goblin、S快速追击使用sprinter蝙蝠、B重型追击使用brute火焰石像、T静止炮台由turretBody与旋转turretPipe组成。配置位于Resources/Sprites/sprites.txt，支持移动、攻击、受击和死亡动画（以已有条目为准）。
 7. F1 额外显示敌人数、生成间隔、屏内/屏外累计生成数和各类型数量；敌人下方 IN/OUT 表示出生方式，而非当前是否在屏内。

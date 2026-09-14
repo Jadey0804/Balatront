@@ -16,6 +16,7 @@ struct GameplaySettings {
     ProjectileStats playerProjectile, enemyProjectile;
     float aoeDamage=0, aoeCooldown=0, attackMultiplier=0, minAttackInterval=0, pickupRadius=0;
     unsigned int initialTargets=0, maxTargets=0, killsPerDrop=0, targetsAdded=0;
+    float firstLevelDuration=0, portalRadius=0;
 
     static GameplaySettings& data() { static GameplaySettings settings; return settings; }
     static const GameplaySettings& get() { return data(); }
@@ -30,6 +31,8 @@ struct GameplaySettings {
         };
         // Limits protect existing movement, fixed pools and finite arithmetic.
         Field fields[] = {
+            {"level1.duration", &pending.firstLevelDuration, nullptr, 1, 3600},
+            {"portal.radius", &pending.portalRadius, nullptr, 1, 128},
             {"player.health", &pending.health, nullptr, 1, 1000000},
             {"player.speed", &pending.speed, nullptr, 0, 2000},
             {"player.radius", &pending.radius, nullptr, 1, 16},
