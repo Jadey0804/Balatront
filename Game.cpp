@@ -10,37 +10,37 @@
 
 namespace {
     template<unsigned int Capacity>
-    void drawShotPool(GamesEngineeringBase::Window& canvas, const Camera& camera,
-        const ProjectilePool<Capacity>& pool, unsigned char red, unsigned char green, unsigned char blue) {
+    void paintBulletPool(GamesEngineeringBase::Window& window, const Camera& gameCamera,
+        const ProjectilePool<Capacity>& bulletList, unsigned char colorR, unsigned char colorG, unsigned char colorB) {
         for (unsigned int i = 0; i < Capacity; ++i) {
-            const Projectile& shot = pool.at(i);
+            const Projectile& shot = bulletList.at(i);
             if (!shot.active) continue;
-            const Vector2 screen = camera.worldToScreen(shot.position);
+            const Vector2 screen = gameCamera.worldToScreen(shot.position);
             const int radius = int(shot.radius), centreX = int(screen.x), centreY = int(screen.y);
             if (centreX + radius < 0 || centreY + radius < 0
-                || centreX - radius >= int(canvas.getWidth()) || centreY - radius >= int(canvas.getHeight())) continue;
+                || centreX - radius >= int(window.getWidth()) || centreY - radius >= int(window.getHeight())) continue;
             for (int y = -radius; y <= radius; ++y)
                 for (int x = -radius; x <= radius; ++x) {
                     const int px = centreX + x, py = centreY + y;
                     if (x*x + y*y <= radius*radius && px >= 0 && py >= 0
-                        && px < int(canvas.getWidth()) && py < int(canvas.getHeight()))
-                        canvas.draw(px, py, red, green, blue);
+                        && px < int(window.getWidth()) && py < int(window.getHeight()))
+                        window.draw(px, py, colorR, colorG, colorB);
                 }
         }
     }
 
-    bool loadImage(GamesEngineeringBase::Image& image, const char* path) {
-        // The immutable course loader does not safely handle missing files.
-        std::ifstream file(path, std::ios::binary);
-        if (!file) { std::cerr << "Missing resource: " << path << '\n'; return false; }
+    bool readOneImage(GamesEngineeringBase::Image& image, const char* filePlace) {
+        // Check the file first because the course loader cannot read a missing file safely.
+        std::ifstream file(filePlace, std::ios::binary);
+        if (!file) { std::cerr << "Missing resource: " << filePlace << '\n'; return false; }
         file.close();
-        if (!image.load(path) || image.width == 0 || image.height == 0) {
-            std::cerr << "Unsupported image: " << path << '\n'; return false;
+        if (!image.load(filePlace) || image.width == 0 || image.height == 0) {
+            std::cerr << "Unsupported image: " << filePlace << '\n'; return false;
         }
         return true;
     }
 
-    bool manualAim(const GamesEngineeringBase::Window& canvas, Vector2 playerScreen, Vector2& direction) {
+    bool readAttackDirection(const GamesEngineeringBase::Window& window, Vector2 heroPlace, Vector2& outWay) {
         float x = 0, y = 0;
         for (unsigned int id = 0; id < XUSER_MAX_COUNT; ++id) {
             XINPUT_STATE state = {};
@@ -49,9 +49,9 @@ namespace {
             if (rx*rx + ry*ry > float(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
                 * float(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)) { x = rx; y = -ry; break; }
         }
-        if (x == 0 && y == 0 && canvas.mouseButtonPressed(GamesEngineeringBase::MouseLeft)) {
-            x = float(canvas.getMouseInWindowX()) - playerScreen.x;
-            y = float(canvas.getMouseInWindowY()) - playerScreen.y;
+        if (x == 0 && y == 0 && window.mouseButtonPressed(GamesEngineeringBase::MouseLeft)) {
+            x = float(window.getMouseInWindowX()) - heroPlace.x;
+            y = float(window.getMouseInWindowY()) - heroPlace.y;
         }
         if (x == 0 && y == 0) return false;
         const float angle = std::atan2(y, x);
@@ -61,11 +61,11 @@ namespace {
             {1,0}, {0.707106781f,0.707106781f}, {0,1}, {-0.707106781f,0.707106781f},
             {-1,0}, {-0.707106781f,-0.707106781f}, {0,-1}, {0.707106781f,-0.707106781f}
         };
-        direction = directions[sector % 8];
+        outWay = directions[sector % 8];
         return true;
     }
 
-    bool controllerMovement(Vector2& movement) {
+    bool readControllerMove(Vector2& outMove) {
         for (unsigned int id = 0; id < XUSER_MAX_COUNT; ++id) {
             XINPUT_STATE state = {};
             if (XInputGetState(id, &state) != ERROR_SUCCESS) continue;
@@ -75,23 +75,23 @@ namespace {
             if (length <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) continue;
             const float magnitude = ClampValue((length - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
                 / (32767.0f - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE), 0, 1);
-            movement = {x / length * magnitude, y / length * magnitude};
+            outMove = {x / length * magnitude, y / length * magnitude};
             return true;
         }
         return false;
     }
 
-    void centredText(GamesEngineeringBase::Window& canvas, int y, const char* message) {
-        Hud::text(canvas, (int(canvas.getWidth()) - int(std::strlen(message)) * 12) / 2, y, message);
+    void writeMiddleText(GamesEngineeringBase::Window& window, int lineY, const char* words) {
+        Hud::text(window, (int(window.getWidth()) - int(std::strlen(words)) * 12) / 2, lineY, words);
     }
 }
 
-bool Game::initialize() {
+bool Game::makeReady() {
     nextMapSeed = static_cast<std::uint32_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
     canvas.create(GameConfig::WindowWidth, GameConfig::WindowHeight, "Balatront");
     if (!GameplaySettings::load("Resources/gameplay.txt")) { startupError = GameplaySettings::error(); return false; }
     session.player = Player{};
-    if (!loadImage(playerImage, "Resources/L.png")) return false;
+    if (!readOneImage(playerImage, "Resources/L.png")) return false;
     if (!enemySprites.load("Resources/Sprites/sprites.txt")) { startupError = enemySprites.error(); return false; }
     enemySprites.configure(enemies);
     if (!tileMap.load("Resources/tiles.txt")) { startupError = tileMap.error(); return false; }
@@ -106,7 +106,7 @@ bool Game::initialize() {
 }
 
 int Game::run() {
-    if (!initialize()) {
+    if (!makeReady()) {
         canvas.clear();
         Hud::text(canvas, 16, 16, "MAP OR RESOURCE ERROR - ESC TO QUIT");
         char message[128];
@@ -122,9 +122,9 @@ int Game::run() {
     while (running) {
         canvas.checkInput();
         const float dt = timer.dt();
-        update(dt);
+        gameUpdate(dt);
         if (!running) break;
-        render();
+        paintAll();
         canvas.present();
         measuredSeconds += dt;
         ++frames;
@@ -142,7 +142,7 @@ int Game::run() {
     return 0;
 }
 
-void Game::startSession() {
+void Game::startOneGame() {
     selectedMode = CameraMode::Fixed;
     level.reset(worldSize);
     tileMap.mode = selectedMode;
@@ -163,13 +163,13 @@ void Game::startSession() {
         << " map; seed " << tileMap.procedural.seed << '\n';
 }
 
-void Game::enterSecondLevel() {
+void Game::goToNextMap() {
     selectedMode = CameraMode::Infinite;
     tileMap.mode = session.camera.mode = selectedMode;
     nextMapSeed = nextMapSeed * 1664525u + 1013904223u;
     tileMap.procedural.seed = nextMapSeed;
     if (!tileMap.findSpawn(session.player.radius, spawnPosition)) { running = false; return; }
-    // Preserve health, upgrades and cooldowns; replace the battlefield only.
+    // Keep the player health and power items when changing to the next map.
     session.player.position = session.player.previousPosition = spawnPosition;
     session.player.velocity = {};
     session.camera.follow(spawnPosition, worldSize, viewport);
@@ -189,7 +189,7 @@ void Game::enterSecondLevel() {
     level.portalTime = 0;
 }
 
-void Game::update(float dt) {
+void Game::gameUpdate(float dt) {
     saveMessageTime = ClampValue(saveMessageTime - dt, 0, 4);
     const bool save = canvas.keyPressed(VK_F5), load = canvas.keyPressed(VK_F9);
     const bool savePressed = save && !previousSave, loadPressed = load && !previousLoad;
@@ -201,7 +201,7 @@ void Game::update(float dt) {
         previousEnter = canvas.keyPressed(VK_RETURN);
         previousDebug = canvas.keyPressed(VK_F1);
         previousAoe = canvas.keyPressed(VK_SPACE);
-        return; // Save/load operates on the last complete simulation frame.
+        return; // Save and load only use the last finished game frame
     }
     const bool escape = canvas.keyPressed(VK_ESCAPE);
     const bool enter = canvas.keyPressed(VK_RETURN);
@@ -216,7 +216,7 @@ void Game::update(float dt) {
     else if (enterPressed) {
         if (session.state == GameState::Menu || session.state == GameState::GameOver
             || session.state == GameState::Victory) {
-            startSession();
+            startOneGame();
         }
         else if (session.state == GameState::Paused) session.togglePause();
     }
@@ -230,8 +230,8 @@ void Game::update(float dt) {
         float(canvas.keyPressed('D')) - float(canvas.keyPressed('A')),
         float(canvas.keyPressed('S')) - float(canvas.keyPressed('W'))
     };
-    if (input.x == 0 && input.y == 0) controllerMovement(input);
-    // A pause/resume/start event consumes no simulation time from the old state.
+    if (input.x == 0 && input.y == 0) readControllerMove(input);
+    // Do not add game time on the frame when the game state changes.
     const float step = (escapePressed || enterPressed) ? 0.0f : dt;
     const float terrainMultiplier = tileMap.isRoad(session.player.position) ? GameplaySettings::get().roadMultiplier : 1.0f;
     session.update(input, step, worldSize, viewport, terrainMultiplier);
@@ -243,14 +243,14 @@ void Game::update(float dt) {
         healthPickups.update(session.player, tileMap, step);
     }
     enemies.update(session, step, worldSize, viewport);
-    updateCombat(step);
+    fightUpdate(step);
     if (session.state == GameState::Playing && level.number == 2
         && session.elapsed >= GameplaySettings::get().firstLevelDuration) {
         session.state = GameState::Victory;
         session.player.velocity = {};
         return;
     }
-    if (level.update(session, step)) { enterSecondLevel(); return; }
+    if (level.update(session, step)) { goToNextMap(); return; }
     if (session.state == GameState::Playing && step > 0) {
         for (UpgradePickup& pickup : combat.pickups) {
             if (!pickup.active) continue;
@@ -264,7 +264,7 @@ void Game::update(float dt) {
     }
 }
 
-void Game::updateCombat(float dt) {
+void Game::fightUpdate(float dt) {
     const bool aoe = canvas.keyPressed(VK_SPACE);
     const bool aoeClicked = aoe && !previousAoe;
     previousAoe = aoe;
@@ -291,7 +291,7 @@ void Game::updateCombat(float dt) {
         if (target) {
             Vector2 aim = {target->position.x - session.player.position.x,
                 target->position.y - session.player.position.y};
-            // Coincident centres still produce a shot for the normal overlap hit check.
+            // Give the bullet a direction when the player and enemy are in the same place.
             if (aim.x == 0 && aim.y == 0) aim = {1, 0};
             playerShots.spawn(session.player.position, aim, GameplaySettings::get().playerProjectile.speed,
                 GameplaySettings::get().playerProjectile.lifetime, GameplaySettings::get().playerProjectile.damage, GameplaySettings::get().playerProjectile.radius);
@@ -302,7 +302,7 @@ void Game::updateCombat(float dt) {
         * session.player.attackInterval / GameplaySettings::get().attackInterval;
     manualShootCooldown = ClampValue(manualShootCooldown - dt, 0, manualInterval);
     Vector2 aim;
-    if (manualAim(canvas, session.camera.worldToScreen(session.player.position), aim)
+    if (readAttackDirection(canvas, session.camera.worldToScreen(session.player.position), aim)
         && manualShootCooldown <= 0) {
         manualShots.spawn(session.player.position, aim, GameplaySettings::get().manualProjectile.speed,
             GameplaySettings::get().manualProjectile.lifetime, GameplaySettings::get().manualProjectile.damage,
@@ -312,16 +312,16 @@ void Game::updateCombat(float dt) {
     enemies.shootAtPlayer(session.player.position, dt, enemyShots);
 }
 
-void Game::drawProjectiles() {
-    drawShotPool(canvas, session.camera, playerShots, 255, 245, 110);
-    drawShotPool(canvas, session.camera, enemyShots, 255, 80, 50);
+void Game::paintBullets() {
+    paintBulletPool(canvas, session.camera, playerShots, 255, 245, 110);
+    paintBulletPool(canvas, session.camera, enemyShots, 255, 80, 50);
     for (unsigned int i = 0; i < GameConfig::MaxManualProjectiles; ++i) {
         const Projectile& shot = manualShots.at(i);
         if (shot.active) enemySprites.drawManualBomb(canvas, session.camera.worldToScreen(shot.position));
     }
 }
 
-void Game::drawEnemies() {
+void Game::paintMonsters() {
     for (unsigned int i = 0; i < GameConfig::MaxEnemies; ++i) {
         const Enemy& enemy = enemies.at(i);
         if (!enemy.active && !enemy.dying) continue;
@@ -348,14 +348,14 @@ void Game::drawEnemies() {
     }
 }
 
-void Game::drawPlayer() {
+void Game::paintHero() {
     if (session.player.damageFeedback > 0 && int(session.player.damageAnimationTime * 24) % 2 == 1) return;
     const Vector2 screen = session.camera.worldToScreen(session.player.position);
     constexpr int height = 48;
     const int width = int(playerImage.width * height / playerImage.height);
     const int left = int(screen.x) - width / 2;
     const int top = int(screen.y) - height / 2;
-    // Nearest-neighbour scaling of the user's placeholder, preserving aspect.
+    // Make the player picture bigger but keep its original shape.
     for (int row = 0; row < height; ++row)
         for (int col = 0; col < width; ++col) {
             const int x = left + col, y = top + row;
@@ -378,7 +378,7 @@ void Game::drawPlayer() {
     }
 }
 
-void Game::drawCombat() {
+void Game::paintFight() {
     for (unsigned int i = 0; i < GameConfig::MaxHealthPickups; ++i) {
         const HealthPickup& pickup = healthPickups.at(i);
         if (pickup.active) enemySprites.drawHealthPickup(canvas, session.camera.worldToScreen(pickup.position));
@@ -399,19 +399,19 @@ void Game::drawCombat() {
     if (combat.feedbackTime <= 0) return;
     for (unsigned int i = 0; i < combat.targetCount; ++i) {
         const Vector2 screen = session.camera.worldToScreen(combat.targetPositions[i]);
-        // Store positions rather than enemy slots: lethal hits and slot reuse keep valid feedback.
+        // Keep the hit place so the effect is still correct after an enemy is removed.
         enemySprites.drawAoe(canvas, screen, CombatConfig::FeedbackTime - combat.feedbackTime);
     }
 }
 
-void Game::drawHud() {
+void Game::paintInformation() {
     const int panelHeight = showCollider ? 230 : 158;
-    // Move the overlay out of the way when the player reaches the top edge.
+    // Put the information box at bottom when the player is near the top.
     const int panelY = session.state != GameState::Menu
         && session.camera.worldToScreen(session.player.position).y < panelHeight + 24
         ? int(canvas.getHeight()) - panelHeight : 0;
     const unsigned char background[] = {20, 24, 32};
-    constexpr unsigned int alpha = 204; // 0.8 opacity, 20% of the scene remains visible.
+    constexpr unsigned int alpha = 204; // The background can still be seen a little.
     for (int y = 0; y < panelHeight; ++y)
         for (unsigned int x = 0; x < canvas.getWidth(); ++x) {
             auto* pixel = canvas.backBuffer() + ((panelY + y) * canvas.getWidth() + x) * 3;
@@ -480,17 +480,17 @@ void Game::drawHud() {
     Hud::text(canvas, 16, panelY + 132, saveMessageTime > 0 ? saveMessage : "F5 SAVE / F9 LOAD" );
 }
 
-unsigned int Game::score() const {
+unsigned int Game::countPoint() const {
     return combat.kills * 10 + combat.upgradesCollected * 100
         + static_cast<unsigned int>(session.player.health + 0.5f) * 5;
 }
 
-const char* Game::grade() const {
-    const unsigned int value = score();
+const char* Game::getLevelLetter() const {
+    const unsigned int value = countPoint();
     return value >= 5000 ? "SSS" : value >= 3000 ? "SS" : value >= 1500 ? "S" : "A";
 }
 
-void Game::drawResult() {
+void Game::paintFinish() {
     if (session.state != GameState::Victory && session.state != GameState::GameOver) return;
     const int left = int(canvas.getWidth()) / 2 - 260;
     const int top = int(canvas.getHeight()) / 2 - 105;
@@ -501,20 +501,20 @@ void Game::drawResult() {
                 pixel[channel] = static_cast<unsigned char>(pixel[channel] * 25 / 255);
         }
     char text[96];
-    centredText(canvas, top + 24, session.state == GameState::Victory ? "YOU WIN!!" : "YOU LOST...");
-    std::snprintf(text, sizeof(text), "SCORE %u", score());
-    centredText(canvas, top + 60, text);
+    writeMiddleText(canvas, top + 24, session.state == GameState::Victory ? "YOU WIN!!" : "YOU LOST...");
+    std::snprintf(text, sizeof(text), "SCORE %u", countPoint());
+    writeMiddleText(canvas, top + 60, text);
     std::snprintf(text, sizeof(text), "KILLS %u  BUFFS %u  HP %.0f",
         combat.kills, combat.upgradesCollected, session.player.health);
-    centredText(canvas, top + 88, text);
+    writeMiddleText(canvas, top + 88, text);
     if (session.state == GameState::Victory) {
-        std::snprintf(text, sizeof(text), "GRADE %s", grade());
-        centredText(canvas, top + 120, text);
+        std::snprintf(text, sizeof(text), "GRADE %s", getLevelLetter());
+        writeMiddleText(canvas, top + 120, text);
     }
-    centredText(canvas, top + 164, "ENTER RESTART / ESC QUIT");
+    writeMiddleText(canvas, top + 164, "ENTER RESTART / ESC QUIT");
 }
 
-void Game::render() {
+void Game::paintAll() {
     canvas.clear();
     tileMap.draw(canvas, session.camera);
     if (session.state != GameState::Menu) {
@@ -523,11 +523,11 @@ void Game::render() {
             enemySprites.drawPortal(canvas, screen, level.portalTime);
             Hud::text(canvas, int(screen.x) - 35, int(screen.y) - 48, "PORTAL");
         }
-        drawEnemies();
-        drawPlayer();
-        drawProjectiles();
-        drawCombat();
+        paintMonsters();
+        paintHero();
+        paintBullets();
+        paintFight();
     }
-    drawHud();
-    drawResult();
+    paintInformation();
+    paintFinish();
 }

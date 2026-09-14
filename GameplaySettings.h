@@ -8,7 +8,7 @@
 struct EnemyStats { float health=0, speed=0, contactDamage=0, radius=0; };
 struct ProjectileStats { float damage=0, speed=0, lifetime=0, radius=0; };
 
-// Loaded once before creating gameplay state. No fallback balancing values in code.
+// Read these numbers before the game starts. The code does not keep another copy of values.
 struct GameplaySettings {
     float health=0, speed=0, radius=0, invulnerability=0, attackInterval=0, roadMultiplier=0;
     EnemyStats enemies[4];
@@ -32,7 +32,7 @@ struct GameplaySettings {
             float minimum, maximum;
             bool seen=false;
         };
-        // Limits protect existing movement, fixed pools and finite arithmetic.
+        // These limits stop the config numbers becoming too big for the game.
         Field fields[] = {
             {"level1.duration", &pending.firstLevelDuration, nullptr, 1, 3600},
             {"portal.radius", &pending.portalRadius, nullptr, 1, 128},
@@ -95,7 +95,8 @@ struct GameplaySettings {
             ++lineNumber;
             char* comment=std::strchr(line, '#'); if (comment) *comment=0;
             char key[80], extra; float value;
-            const int count=sscanf_s(line, "%79s %f %c", key, unsigned(sizeof(key)), &value, &extra, 1u);
+            #pragma warning(suppress: 4996) // The 79-character field width leaves room for the terminator.
+            const int count=std::sscanf(line, "%79s %f %c", key, &value, &extra);
             if (count <= 0) continue;
             if (count != 2) { std::cerr << "Line " << lineNumber << '\n'; return fail("Expected property and value"); }
             Field* selected=nullptr;

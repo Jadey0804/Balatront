@@ -22,7 +22,7 @@ namespace EnemyConfig {
     constexpr float SafeDistance = 160.0f;
     constexpr float OutsideMin = 16.0f;
     constexpr float OutsideMax = 64.0f;
-    // Shared definitions: behaviour differs through data, not four update loops.
+    // all enemy kinds use this table,and the number makes them different
     constexpr EnemyDefinition Appearance[TypeCount] = {
         {0, 0, 0, 0, 40, 255, 110, 100, "G"},
         {0, 0, 0, 0, 30, 255, 225, 70, "S"},
@@ -107,7 +107,7 @@ public:
             }
             if (session.camera.mode == CameraMode::Infinite && distance > GameConfig::InfiniteReclaimDistance) {
                 enemy.active = false;
-                continue; // Distant despawn is not a kill and grants no rewards.
+                continue; // removing a far enemy is not a kill and gives nothing,
             }
             if (distance > 0 && stats.speed > 0) {
                 const float travel = ClampValue(stats.speed * dt, 0, distance);
@@ -119,10 +119,10 @@ public:
         const float interval = spawnInterval(session.elapsed);
         while (accumulator >= interval) {
             accumulator -= interval;
-            const EnemyType type = chooseType(session.elapsed);
-            const bool inside = random01() < 0.30f;
+            const EnemyType type = getEnemyKind(session.elapsed);
+            const bool inside = getRandomFloat() < 0.30f;
             Vector2 point;
-            if (spawnPoint(session, viewport, worldSize, definition(type).radius, inside, point))
+            if (findEnemyPlace(session, viewport, worldSize, definition(type).radius, inside, point))
                 spawn(type, point, inside);
             else ++locationSkips;
         }
@@ -136,7 +136,7 @@ public:
             const Vector2 direction = {target.x - enemy.position.x, target.y - enemy.position.y};
             projectiles.spawn(enemy.position, direction, GameplaySettings::get().enemyProjectile.speed,
                 GameplaySettings::get().enemyProjectile.lifetime, GameplaySettings::get().enemyProjectile.damage, GameplaySettings::get().enemyProjectile.radius);
-            // No burst of overdue shots after a stalled frame, including a full pool.
+            // Only make one shot after a slow frame and do not make old shots again
             enemy.shootCooldown = GameplaySettings::get().turretInterval;
         }
     }
@@ -200,41 +200,42 @@ private:
     float accumulator = 0;
     std::uint32_t randomState = 1;
 
-    float random01() {
-        // Explicit reproducible generator state, suitable for later save data.
+    float getRandomFloat() {
+        // Keep this random number so a loaded save gives the same enemy order
         randomState = randomState * 1664525u + 1013904223u;
         return float(randomState >> 8) / 16777216.0f;
     }
 
-    EnemyType chooseType(float elapsed) {
-        const float roll = random01() * 100;
-        if (elapsed < 30) return roll < 70 ? EnemyType::Grunt : roll < 90 ? EnemyType::Sprinter : EnemyType::Brute;
-        if (elapsed < 60) return roll < 50 ? EnemyType::Grunt : roll < 75 ? EnemyType::Sprinter : roll < 95 ? EnemyType::Brute : EnemyType::Turret;
-        if (elapsed < 90) return roll < 40 ? EnemyType::Grunt : roll < 65 ? EnemyType::Sprinter : roll < 90 ? EnemyType::Brute : EnemyType::Turret;
+    EnemyType getEnemyKind(float gameTime) {
+        const float roll = getRandomFloat() * 100;
+        if (gameTime < 30) return roll < 70 ? EnemyType::Grunt : roll < 90 ? EnemyType::Sprinter : EnemyType::Brute;
+        if (gameTime < 60) return roll < 50 ? EnemyType::Grunt : roll < 75 ? EnemyType::Sprinter : roll < 95 ? EnemyType::Brute : EnemyType::Turret;
+        if (gameTime < 90) return roll < 40 ? EnemyType::Grunt : roll < 65 ? EnemyType::Sprinter : roll < 90 ? EnemyType::Brute : EnemyType::Turret;
         return roll < 30 ? EnemyType::Grunt : roll < 60 ? EnemyType::Sprinter : roll < 85 ? EnemyType::Brute : EnemyType::Turret;
     }
 
-    bool spawnPoint(const PlaySession& session, Vector2 viewport, Vector2 worldSize,
-        float radius, bool inside, Vector2& point) {
+    bool findEnemyPlace(const PlaySession& session, Vector2 viewSize, Vector2 mapSize,
+        float enemyRadius, bool putInside, Vector2& outPlace) {
         const Vector2 camera = session.camera.position;
         for (unsigned int attempt = 0; attempt < EnemyConfig::SpawnAttempts; ++attempt) {
-            point = {camera.x + radius + random01() * (viewport.x - 2 * radius),
-                     camera.y + radius + random01() * (viewport.y - 2 * radius)};
-            if (!inside) {
-                const float gap = EnemyConfig::OutsideMin + random01() * (EnemyConfig::OutsideMax - EnemyConfig::OutsideMin);
-                const int edge = int(random01() * 4);
-                if (edge == 0) point.x = camera.x - radius - gap;
-                else if (edge == 1) point.x = camera.x + viewport.x + radius + gap;
-                else if (edge == 2) point.y = camera.y - radius - gap;
-                else point.y = camera.y + viewport.y + radius + gap;
+            outPlace = {camera.x + enemyRadius + getRandomFloat() * (viewSize.x - 2 * enemyRadius),
+                     camera.y + enemyRadius + getRandomFloat() * (viewSize.y - 2 * enemyRadius)};
+            if (!putInside) {
+                const float gap = EnemyConfig::OutsideMin + getRandomFloat() * (EnemyConfig::OutsideMax - EnemyConfig::OutsideMin);
+                const int edge = int(getRandomFloat() * 4);
+                if (edge == 0) outPlace.x = camera.x - enemyRadius - gap;
+                else if (edge == 1) outPlace.x = camera.x + viewSize.x + enemyRadius + gap;
+                else if (edge == 2) outPlace.y = camera.y - enemyRadius - gap;
+                else outPlace.y = camera.y + viewSize.y + enemyRadius + gap;
             }
-            if (session.camera.mode == CameraMode::Fixed && (point.x < radius || point.y < radius
-                || point.x > worldSize.x-radius || point.y > worldSize.y-radius)) continue;
-            const float dx = point.x - session.player.position.x, dy = point.y - session.player.position.y;
+            if (session.camera.mode == CameraMode::Fixed && (outPlace.x < enemyRadius || outPlace.y < enemyRadius
+                || outPlace.x > mapSize.x-enemyRadius || outPlace.y > mapSize.y-enemyRadius)) continue;
+            const float dx = outPlace.x - session.player.position.x, dy = outPlace.y - session.player.position.y;
             if (dx*dx + dy*dy < EnemyConfig::SafeDistance * EnemyConfig::SafeDistance) continue;
             return true;
         }
-        // No valid screen-edge position: skip, never silently change spawn type.
+
+        // Skip this enemy when a good place cant be found.
         return false;
     }
 };

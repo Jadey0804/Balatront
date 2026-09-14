@@ -1,33 +1,46 @@
 # Balatront
 
-课程 GamesEngineeringBase 工程。阶段7实现有限地图到无限地图的传送门流程；阶段8加入随时保存与同点读取，详见 PHASE8_AUDIT.md。
+Balatront is a two-level 2D twin-stick shooter built with the course `GamesEngineeringBase` framework. The first level uses a fixed tile map; its portal appears after 120 seconds and leads to a procedurally generated infinite map. Surviving another 120 seconds wins the game.
 
-## 构建和运行
+## Build and run
 
-基础属性统一读取 `Resources/gameplay.txt`，包括玩家、敌人、炮弹、AOE和强化；字段说明与调参方法见GAMEPLAY_CONFIG.md。下文数值是该文件当前默认值，不再由代码写死。
+1. Open `Balatront.sln` in Visual Studio 2022 with Desktop development with C++ and a Windows SDK installed.
+2. Select `x64` and either `Debug` or `Release`, then build the solution.
+3. Start the game from Visual Studio. The build copies the complete `Resources` tree beside the executable.
 
-1. 使用安装了 C++ 桌面开发工具和 Windows SDK 的 Visual Studio 2022 打开本目录 Balatront.sln。
-2. 选择 x64、Debug 或 Release，生成解决方案。
-3. 从 Visual Studio 启动，或在生成的 EXE 所在目录启动 EXE。生成会自动复制 Resources 子目录。
-4. 使用英文输入模式，Enter从有限地图开始。坚持120秒后地图中心出现传送门，接触后进入第二关随机无限地图。WASD移动，Esc暂停/恢复，暂停时Q退出，F1显示碰撞范围。死亡后Enter从第一关重开。
-5. HUD 显示 HP、位置、时间、FPS 和状态。中文输入法可能拦截 WASD，请先切换英文模式。
-   F5保存、F9读取，暂停时也可操作。读档成功后暂停，Esc或Enter继续；菜单和死亡后也可F9读取。存档为运行目录中的savegame.dat。
-6. 敌人自动生成：G普通追击使用goblin、S快速追击使用sprinter蝙蝠、B重型追击使用brute火焰石像、T静止炮台由turretBody与旋转turretPipe组成。配置位于Resources/Sprites/sprites.txt，支持移动、攻击、受击和死亡动画（以已有条目为准）。
-7. F1 额外显示敌人数、生成间隔、屏内/屏外累计生成数和各类型数量；敌人下方 IN/OUT 表示出生方式，而非当前是否在屏内。
-8. 玩家自动持续发射原有黄色炮弹，每次开火重新瞄准最近的活跃敌人，无需鼠标点击。WASD可同时移动；炮台弹为红色，F1显示双方弹池计数。
-9. WASD或手柄左摇杆移动；按住鼠标左键或推动右摇杆，按八方向量化发射手动炮弹；Space触发AOE。攻速强化同时影响自动攻击和手动炮弹。医药箱定时在玩家附近生成。24号岩浆可通行但会持续扣血，有限和无限地图都会出现。
-10. 第二关在无限地图中坚持120秒即获胜；提前死亡则失败。中央结算显示分数，胜利时按分数显示A/S/SS/SSS等级。分数为击杀数×10、已拾取强化数×100、剩余血量×5之和。
+The executable reads configuration and assets from its adjacent `Resources` directory. Edit the repository copies under `Resources`, rebuild, and restart the game to apply changes.
 
-玩家初始射击间隔0.35秒，攻速强化仍生效；没有敌人时不发射，不积攒补发次数。最近目标按世界距离选择，包含屏外敌人；同距离按槽位顺序。原炮弹发射后直线运动，不追踪、不提前预判目标位移。炮台每1.8秒射击。暂停同时冻结弹丸和射击冷却。
-双方炮弹命中会扣血并回收；玩家接触敌人受伤后有0.35秒无敌时间。角色采用圆形碰撞，弹丸按运动路径扫掠检测。敌人死亡回收；玩家死亡后 Enter 重开、Esc 退出。
-Space 释放 AOE，对当前 HP 最高的最多 N 个敌人各造成40伤害，初始 N=3，冷却12秒。每击杀5个敌人掉落强化，交替 F（攻速间隔乘0.85，下限0.08秒）/N（目标数加1），走近拾取。
-地图从Resources/tiles.txt加载42×42个32像素图块，使用0.png至23.png。14至22为水域/水岸，按整格阻挡玩家；敌人和炮弹可穿水。墙、危险地形和存档尚未实现。
-上述TXT用于有限模式。无限模式按随机seed生成有凸出/凹口的池塘、约3格宽的错位折线主路，以及约1格宽的随机尽头支路；部分区域没有水面，池塘避开路网。岸线呈图块阶梯状，用已有边缘图块分角绘制。不重复TXT、不产生新地图文件；每次开始换seed，同一局回到旧位置地形一致。镜头居中，支持负坐标，水域碰撞规则不变。远于2048像素的敌人/掉落物回收，炮弹按寿命回收。玩家中心位于实际道路像素时速度为1.5倍（180→270），离开道路恢复；有限和无限模式均生效。HUD的ROAD/GRASS SPD显示当前地形速度上限。
-运行读取EXE旁Resources；修改该目录的TXT后重启即可生效。源码资源在仓库Resources，构建时递归复制PNG/TXT并保留子目录；外层Resources的后续改动需要同步到仓库副本。敌人配置与美术验收步骤见SPRITE_ASSETS_AUDIT.md。
-当前按用户要求使用最近敌人自动攻击；不满足原课程文档的方向键八方向独立瞄准要求。
-玩家使用 L.png 占位，碰撞半径14，速度180 px/s。地图1344×1344，窗口1024×768。
-左摇杆按用户决定待补：框架没有公开摇杆数值接口，且不允许修改框架。
-旧 RiverRaid 类保留在 Balatront.cpp 中作为开发基础，当前入口不实例化它们。
+## Controls
 
-GamesEngineeringBase.h 不准修改。阶段工作均使用新分支，未经明确授权不得 commit 或 push。
-详细接口、约束和已知限制见各PHASE*_AUDIT.md，有限地图格式见PHASE5_AUDIT.md，无限地图和当前手动验收步骤见PHASE6_AUDIT.md；较早审计描述各阶段当时的状态。
+- `WASD` or the left analogue stick: move
+- Hold the left mouse button or move the right analogue stick: fire the manual bomb in one of eight directions
+- `Space`: area-of-effect attack
+- `Esc`: pause or resume
+- `F1`: toggle gameplay and collision diagnostics
+- `F5`: save at any time
+- `F9`: load the save and resume in a paused state
+- `Enter`: start or restart
+
+The player also fires automatically at the closest enemy. Attack-speed upgrades affect both automatic fire and the manual eight-direction attack. AOE upgrades increase the number of targets.
+
+## World and progression
+
+Water blocks the player but does not block enemies. Roads increase player movement speed by 1.5 times. Lava remains passable and deals continuous damage. Health pickups appear near the player and disappear if they are not collected in time.
+
+The fixed level is loaded from `Resources/tiles.txt`. The infinite level is generated deterministically from its current seed, so revisiting an area in the same run produces the same terrain without writing additional map files.
+
+The final score is:
+
+`enemy kills x 10 + collected upgrades x 100 + remaining health x 5`
+
+A victory receives an `A`, `S`, `SS`, or `SSS` rank. Dying before the end displays the defeat screen without a rank.
+
+## Configuration
+
+- `Resources/gameplay.txt` contains player, enemy, projectile, AOE, upgrade, level, pickup, and lava values.
+- `Resources/Sprites/sprites.txt` contains image paths, frame dimensions, animation counts, playback rates, display sizes, and orientation settings.
+- `Resources/tiles.txt` contains the fixed 32 by 32 pixel tile map.
+
+The local save slot is `savegame.dat` beside the executable. Saves store the level, timers, procedural seed, player state, enemies, projectiles, pickups, upgrades, and portal state.
+
+`GamesEngineeringBase.h` is course framework code and must remain unchanged.

@@ -34,7 +34,7 @@ enemy_projectile.speed 240
 enemy_projectile.lifetime 6
 enemy_projectile.radius 4
 
-# Manual eight-direction bomb. This interval is independent of attack-speed upgrades.
+# Manual eight-direction bomb. Attack-speed upgrades also reduce this interval.
 manual_projectile.damage 25
 manual_projectile.speed 360
 manual_projectile.lifetime 4

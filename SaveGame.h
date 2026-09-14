@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <fstream>
 
-// Version 1: explicit scalar fields, fixed capacities, no object memory or pointers.
+// Save normal values one by one and do not save memory address.
 class SaveGame {
     struct Snapshot {
         PlaySession session;
@@ -20,7 +20,7 @@ class SaveGame {
         unsigned int width = 0, height = 0;
         unsigned char cells[GameConfig::MaxMapWidth * GameConfig::MaxMapHeight] = {};
     };
-    // The archive validates primitive representations before assigning values.
+    // Check every basic value before putting it back into the game.
     class Archive {
         std::istream* input;
         std::ostream* output;
@@ -76,8 +76,8 @@ private:
         if (pool.searchStart >= Capacity || pool.active != active) a.valid = false;
     }
     static void serialize(Archive& a, Snapshot& s) {
-        a.constant(0x42545356u); a.constant(4); // BTSV, format version
-        a.enumeration(s.session.state, 6); a.value(s.session.elapsed);
+        a.constant(0x42545356u); a.constant(4); // This number tells which save file format is used.
+        a.enumeration(s.session.state, 5); a.value(s.session.elapsed);
         a.vector(s.session.camera.position); a.enumeration(s.session.camera.mode, 2);
         Player& p = s.session.player;
         a.vector(p.position); a.vector(p.previousPosition); a.vector(p.velocity);
@@ -166,7 +166,7 @@ public:
         file.flush(); bool good = a.valid && bool(file); file.close(); good = good && !file.fail();
         delete s;
         if (!good) { std::remove("savegame.tmp"); return "SAVE FAILED - WRITE OR STATE ERROR"; }
-        // Retain the previous slot while replacing it; an interrupted write cannot truncate it.
+        // Keep the old save first so a stopped writing will not destroy it.
         std::ifstream existing("savegame.dat", std::ios::binary);
         const bool hadSave = bool(existing); existing.close();
         if (hadSave) {

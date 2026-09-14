@@ -2,8 +2,8 @@
 #include <cmath>
 #include "GameplaySettings.h"
 
-// World positions refer to object centres. Screen positions are derived only
-// during rendering; no image dimensions are stored in movement/camera logic.
+// The object position means its middle point in the map.
+// Screen position is calculated only when drawing the object.
 struct Vector2 {
     float x = 0.0f;
     float y = 0.0f;
@@ -45,7 +45,7 @@ struct Player {
         damageFeedback = ClampValue(damageFeedback - dt, 0, GameplaySettings::get().invulnerability);
         damageAnimationTime = damageFeedback > 0 ? damageAnimationTime + dt : 0;
         const float length = std::sqrt(input.x * input.x + input.y * input.y);
-        // Preserve analog input magnitude; cap diagonal keyboard input to one.
+        // Keep the stick strength and stop keyboard diagonal movement becoming faster.
         if (length > 1.0f) { input.x /= length; input.y /= length; }
         velocity = {input.x * speed * terrainMultiplier, input.y * speed * terrainMultiplier};
         position.x += velocity.x * dt;
@@ -78,7 +78,7 @@ struct Camera {
     }
 };
 
-// The same state gate is used by runtime and the movement/pause tests.
+// This stores the player camera time and current game state together.
 struct PlaySession {
     Player player;
     Camera camera;

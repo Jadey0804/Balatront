@@ -2,10 +2,10 @@
 #include <cstdint>
 
 struct TerrainTile {
-    unsigned int images[4] = {}; // NW, NE, SW, SE source quadrants.
+    unsigned int images[4] = {}; // These are the four picture parts of one tile.
 };
 
-// Stateless coordinate queries; neighbouring regions share road endpoints.
+// A map place always gives the same ground when the seed is the same.
 class ProceduralMap {
 public:
     static constexpr int RegionSize = 64;
@@ -32,7 +32,7 @@ public:
             | (unsigned(roadVertex(x,y+1))<<2) | (unsigned(roadVertex(x+1,y+1))<<3);
         static constexpr unsigned int ids[16]={0,23,3,8,2,4,0,5,1,0,7,9,12,6,11,13};
         if (mask==6 || mask==9) {
-            // Missing diagonal-only tiles: combine the two independent corner pieces.
+            // Use two corner pictures when one diagonal tile picture does not exist.
             static constexpr unsigned int corners[4]={23,3,2,1};
             for (unsigned int i=0;i<4;++i) result.images[i]=mask & (1u<<i) ? corners[i] : 0;
         } else for (unsigned int& id:result.images) id=ids[mask];
@@ -77,7 +77,7 @@ public:
             || ellipse(px,py,cx+side*rx*0.55f,cy+ry*0.35f,rx*0.65f,ry*0.8f);
         if (next(random)%3!=0 && ellipse(px,py,cx-side*rx*0.4f,cy-ry*0.75f,rx*0.55f,ry*0.5f)) wet=false;
         wet = wet && largePond;
-        // Spread small pools across the region, including regions without a large lake.
+        // Put some small water pools in every kind of area.
         random = hash(col ^ 0x579b, row);
         for (int i = 0; i < SmallPondCount; ++i) {
             const float smallX = float(7 + (i % 2) * 28 + next(random) % 11);
@@ -87,7 +87,7 @@ public:
             if (ellipse(px, py, smallX, smallY, smallRX, smallRY)) wet = true;
         }
         if (!wet || px<3 || py<3 || px>=RegionSize-3 || py>=RegionSize-3) return false;
-        // Keep a grass shoulder; water never cuts through a road or terminal branch.
+        // Leave some grass near roads so water does not cover the road.
         for (int dy=-1;dy<=1;++dy)
             for (int dx=-1;dx<=1;++dx)
                 if (roadVertex(x+dx,y+dy)) return false;

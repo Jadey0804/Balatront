@@ -31,6 +31,21 @@
 *.out
 *.app
 
+# Visual Studio local files and generated build output
+.vs/
+[xX]64/
+[Dd]ebug/
+[Rr]elease/
+*-artifacts/
+*.idb
+*.ilk
+*.pdb
+*.recipe
+*.tlog
+*.user
+*.VC.db
+*.log
+
 # Local save slot and replacement files
 savegame.dat
 savegame.tmp

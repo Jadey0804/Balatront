@@ -1,7 +1,7 @@
 #pragma once
 #include "GamesEngineeringBase.h"
 
-// Minimal fixed 5x7 font for the phase HUD. No OS font API or extra dependency.
+// This is a small fixed font and does not need another font library.
 namespace Hud {
     inline void text(GamesEngineeringBase::Window& canvas, int x, int y, const char* message) {
         static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-./!";

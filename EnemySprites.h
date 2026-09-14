@@ -33,9 +33,9 @@ public:
             unsigned int w, h, frames;
             float fps, scale;
             int loop;
-            const int fields = sscanf_s(first, "%31s %31s \"%511[^\"]\" %u %u %u %f %f %d %c",
-                type, unsigned(sizeof(type)), action, unsigned(sizeof(action)), imagePath, unsigned(sizeof(imagePath)),
-                &w, &h, &frames, &fps, &scale, &loop, &extra, 1u);
+            #pragma warning(suppress: 4996) // String field widths bound writes to the arrays below.
+            const int fields = std::sscanf(first, "%31s %31s \"%511[^\"]\" %u %u %u %f %f %d %c",
+                type, action, imagePath, &w, &h, &frames, &fps, &scale, &loop, &extra);
             if (fields != 9 || count == MaxClips || !w || !h || !frames || frames > 1024
                 || !std::isfinite(fps) || !std::isfinite(scale) || scale <= 0 || scale > 16
                 || fps < 0 || (frames > 1 && fps <= 0) || (loop != 0 && loop != 1)) {
@@ -113,12 +113,12 @@ public:
         const int action = static_cast<int>(enemy.animation);
         const int index = lookup[group][action] >= 0 ? lookup[group][action] : lookup[group][0];
         bool flip = enemy.faceLeft && group != 3;
-        // Brute's walk sheet faces left by default, unlike the other clips.
+        // the brute walk picture looks left first so its turn rule is opposite.
         if (enemy.type == EnemyType::Brute && index == lookup[group][0]) flip = !flip;
         drawClip(canvas, clips[index], screen, enemy.animationTime, flip, 0,
             enemy.active && enemy.hitFlash > 0 && lookup[group][2] < 0);
         if (group == 3 && enemy.active) {
-            // The supplied pipe points down; its 16x16 canvas centre is the mounting pivot.
+            // the pipe picture looks down and turns around the middle of the picture
             const float angle = std::atan2(target.y-enemy.position.y, target.x-enemy.position.x) - 1.570796327f;
             drawClip(canvas, clips[lookup[4][0]], screen, 0, false, angle, false);
         }

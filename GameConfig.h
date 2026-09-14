@@ -3,7 +3,7 @@
 #include <cassert>
 #include <iostream>
 
-// Course header internals are exempt from the student-code STL restriction.
+// The course header can use its own standard library code.
 namespace GameConfig {
     constexpr unsigned int WindowWidth = 1024;
     constexpr unsigned int WindowHeight = 768;
@@ -17,17 +17,13 @@ namespace GameConfig {
     constexpr unsigned int MaxMapHeight = 60;
     constexpr unsigned int TileSize = 32;
 
-    constexpr unsigned int CardCount = 8;
-    constexpr unsigned int MaxOwnedCards = 16;
-    // Provisional storage ceiling; gameplay balancing belongs to phase 4.
     constexpr unsigned int MaxAoeTargets = MaxEnemies;
 }
 
-// Phase 0 declares the vocabulary only. Transitions belong to later phases.
-enum class GameState { Menu, Playing, Paused, Shop, GameOver, Victory };
+enum class GameState { Menu, Playing, Paused, GameOver, Victory };
 
-// Assertions diagnose programmer errors only. Capacity exhaustion must return
-// failure at the call site in every configuration, never rely on an assertion.
+// Assertions only show coding mistakes when using Debug mode.
+// A full array still needs normal failure handling in every build mode.
 #ifndef NDEBUG
 #define GAME_ASSERT(condition) assert(condition)
 #define GAME_DEBUG_LOG(message) do { std::clog << "[Debug] " << message << '\n'; } while (false)

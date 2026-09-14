@@ -16,7 +16,7 @@ struct Projectile {
     float motionFraction = 1;
 };
 
-// One implementation, two independent fixed arrays. No per-shot allocations.
+// All bullet kinds use this fixed array code and making a bullet does not ask for new memory.
 template<unsigned int Capacity>
 class ProjectilePool {
     friend class SaveGame;
@@ -60,13 +60,13 @@ public:
         }
     }
 
-    // Resolve the final segment before lifetime/world-bound reclamation.
+    // Check the last bullet movement before removing an expired bullet.
     void recycle(Vector2 worldSize, bool fixedWorld = true) {
         for (unsigned int i = 0; i < Capacity; ++i) {
             const Projectile& shot = shots[i];
             if (!shot.active) continue;
             const float margin = ProjectileConfig::WorldMargin;
-            // Recycle against WORLD bounds, never against the moving camera.
+            // Remove bullets using map border and not the moving screen border.
             if (shot.remainingLife <= 0 || (fixedWorld && (shot.position.x < -margin || shot.position.y < -margin
                 || shot.position.x > worldSize.x + margin || shot.position.y > worldSize.y + margin)))
                 deactivate(i);

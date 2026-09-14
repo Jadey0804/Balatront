@@ -19,8 +19,8 @@ struct HitEffect {
     float remaining = 0;
 };
 
-// Relative motion reduces two moving circles to a segment against a circle.
-// Returns the first contact fraction, including initial overlap and tangency.
+// move both circles into one movement line to check if they touch
+//give back the first touching place on this movement
 inline bool CircleSweep(Vector2 from, Vector2 to, Vector2 targetFrom,
     Vector2 targetTo, float radius, float& fraction) {
     const Vector2 offset = {from.x - targetFrom.x, from.y - targetFrom.y};
@@ -99,7 +99,7 @@ struct Combat {
         unsigned int indices[GameConfig::MaxAoeTargets] = {};
         bool selected[GameConfig::MaxEnemies] = {};
         targetCount = 0;
-        // Select the complete set before applying damage. Equal HP uses slot order.
+        // Find every target first and use array order when health is the same.
         while (targetCount < requested && targetCount < GameConfig::MaxAoeTargets) {
             int best = -1;
             for (unsigned int i = 0; i < GameConfig::MaxEnemies; ++i) {
@@ -132,7 +132,7 @@ struct Combat {
             if (CircleSweep(shot.previousPosition, shot.position, player.previousPosition,
                 targetEnd, shot.radius + player.radius, fraction)) {
                 player.takeDamage(shot.damage);
-                enemyShots.deactivate(i); // Invulnerability also consumes the colliding shot.
+                enemyShots.deactivate(i); // The bullet disappears even when the player cannot lose health 
             }
         }
         for (unsigned int i = 0; i < GameConfig::MaxEnemies; ++i) {

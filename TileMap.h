@@ -60,8 +60,8 @@ public:
             ? procedural.appearance(col, row).images[(y >= tileSize/2 ? 2 : 0) + (x >= tileSize/2 ? 1 : 0)]
             : tileAt(col, row);
         if (id == 0 || id == 24 || (id >= 14 && id <= 22)) return false;
-        // This atlas has distinct palettes: all road shades have R>G,B;
-        // all grass shades have G>R. Sample the same source pixel as rendering.
+        // Road pixels have more red and grass pixels have more green.
+        // Read the same picture pixel that is shown on the screen.
         const unsigned char* pixel = images[id].atUnchecked(x, y);
         return pixel[0] > pixel[1] && pixel[0] > pixel[2];
     }
@@ -106,7 +106,8 @@ public:
         const Vector2 desired = player.position;
         const Vector2 delta = {desired.x - player.previousPosition.x, desired.y - player.previousPosition.y};
         const float distance = std::sqrt(delta.x*delta.x + delta.y*delta.y);
-        // Small steps prevent jumping over a tile; axis separation allows sliding along banks.
+        // Use small movement parts so the player cannot jump over water.
+        // Check two directions separately so the player can move beside water.
         const int steps = 1 + int(distance / (GameConfig::TileSize * 0.25f));
         const Vector2 step = {delta.x / steps, delta.y / steps};
         player.position = player.previousPosition;
@@ -174,7 +175,7 @@ private:
         for (int row = firstY; row <= lastY; ++row)
             for (int col = firstX; col <= lastX; ++col) {
                 const unsigned int id = tileAt(col, row);
-                // Supplied atlas: 14..22 are water/bank tiles; all others grass/dirt.
+                // Picture numbers 14 to 22 are water and water edge.
                 if (id < 14 || id > 22) continue;
                 const float x = ClampValue(position.x, float(col * tileSize), float((col + 1) * tileSize));
                 const float y = ClampValue(position.y, float(row * tileSize), float((row + 1) * tileSize));

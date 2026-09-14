@@ -8,7 +8,7 @@
 #include "LevelFlow.h"
 #include "HealthPickups.h"
 
-// Owns the framework window/resources and delegates simulation to PlaySession.
+// This class keeps the game window and runs all game parts.
 class Game {
     friend class SaveGame;
 public:
@@ -46,18 +46,18 @@ private:
     bool running = true;
     float fps = 0.0f;
 
-    bool initialize();
-    void startSession();
-    void enterSecondLevel();
-    void update(float dt);
-    void updateCombat(float dt);
-    void drawCombat();
-    void render();
-    void drawPlayer();
-    void drawEnemies();
-    void drawProjectiles();
-    void drawHud();
-    void drawResult();
-    unsigned int score() const;
-    const char* grade() const;
+    bool makeReady();
+    void startOneGame();
+    void goToNextMap();
+    void gameUpdate(float dt);
+    void fightUpdate(float dt);
+    void paintFight();
+    void paintAll();
+    void paintHero();
+    void paintMonsters();
+    void paintBullets();
+    void paintInformation();
+    void paintFinish();
+    unsigned int countPoint() const;
+    const char* getLevelLetter() const;
 };
