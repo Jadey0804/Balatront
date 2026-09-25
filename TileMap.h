@@ -106,7 +106,7 @@ public:
         const Vector2 desired = player.position;
         const Vector2 delta = {desired.x - player.previousPosition.x, desired.y - player.previousPosition.y};
         const float distance = std::sqrt(delta.x*delta.x + delta.y*delta.y);
-        // Use small movement parts so the player cannot jump over water.
+       
         // Check two directions separately so the player can move beside water.
         const int steps = 1 + int(distance / (GameConfig::TileSize * 0.25f));
         const Vector2 step = {delta.x / steps, delta.y / steps};
@@ -175,7 +175,7 @@ private:
         for (int row = firstY; row <= lastY; ++row)
             for (int col = firstX; col <= lastX; ++col) {
                 const unsigned int id = tileAt(col, row);
-                // Picture numbers 14 to 22 are water and water edge.
+                // Picture numbers 14 to 22 are water and the water edge.
                 if (id < 14 || id > 22) continue;
                 const float x = ClampValue(position.x, float(col * tileSize), float((col + 1) * tileSize));
                 const float y = ClampValue(position.y, float(row * tileSize), float((row + 1) * tileSize));

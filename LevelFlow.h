@@ -17,7 +17,7 @@ struct LevelFlow {
         if (number != 1 || session.state != GameState::Playing || dt <= 0) return false;
         if (!portalOpen) {
             if (session.elapsed >= GameplaySettings::get().firstLevelDuration) portalOpen = true;
-            return false; // Movement before the portal appears cannot enter it.
+            return false; // before the portal appears cannot enter it
         }
         portalTime += dt;
         float fraction;

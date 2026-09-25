@@ -32,7 +32,7 @@ struct GameplaySettings {
             float minimum, maximum;
             bool seen=false;
         };
-        // These limits stop the config numbers becoming too big for the game.
+        // these limits prevent config numbers becoming too big for the game.
         Field fields[] = {
             {"level1.duration", &pending.firstLevelDuration, nullptr, 1, 3600},
             {"portal.radius", &pending.portalRadius, nullptr, 1, 128},

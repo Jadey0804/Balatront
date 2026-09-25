@@ -1242,16 +1242,24 @@ namespace GamesEngineeringBase
 			rX = state.Gamepad.sThumbRX;
 			rY = state.Gamepad.sThumbRY;
 			float rLen = sqrtf((rX * rX) + (rY * rY));
-			rX = rX / rLen;
-			rY = rY / rLen;
+			if (rLen > 0)
+			{
+				rX = rX / rLen;
+				rY = rY / rLen;
+			}
+			else
+			{
+				rX = 0;
+				rY = 0;
+			}
 			if (rLen > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
 			{
 				if (rLen > 32767)
 				{
 					rLen = 32767;
 				}
-				rLen = rLen - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
-				rLen = rLen / (32767 - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+				rLen = rLen - XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE;
+				rLen = rLen / (32767 - XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 			} else
 			{
 				rLen = 0;
@@ -1263,6 +1271,12 @@ namespace GamesEngineeringBase
 			rT = static_cast<float>(state.Gamepad.bRightTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) / static_cast<float>(255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
 			lT = static_cast<float>(state.Gamepad.bLeftTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) / static_cast<float>(255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
 		}
+
+		// Expose the stick values already processed by the course input code.
+		float getLeftX() const { return lX; }
+		float getLeftY() const { return lY; }
+		float getRightX() const { return rX; }
+		float getRightY() const { return rY; }
 
 		// Button state methods
 		bool upPressed() { return ((state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) > 0); }

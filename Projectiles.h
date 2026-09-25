@@ -60,7 +60,7 @@ public:
         }
     }
 
-    // Check the last bullet movement before removing an expired bullet.
+    // check the last bullet movement before removing an expired bullet
     void recycle(Vector2 worldSize, bool fixedWorld = true) {
         for (unsigned int i = 0; i < Capacity; ++i) {
             const Projectile& shot = shots[i];

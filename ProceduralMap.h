@@ -77,7 +77,7 @@ public:
             || ellipse(px,py,cx+side*rx*0.55f,cy+ry*0.35f,rx*0.65f,ry*0.8f);
         if (next(random)%3!=0 && ellipse(px,py,cx-side*rx*0.4f,cy-ry*0.75f,rx*0.55f,ry*0.5f)) wet=false;
         wet = wet && largePond;
-        // Put some small water pools in every kind of area.
+        // Put some small water pools 
         random = hash(col ^ 0x579b, row);
         for (int i = 0; i < SmallPondCount; ++i) {
             const float smallX = float(7 + (i % 2) * 28 + next(random) % 11);
@@ -87,7 +87,7 @@ public:
             if (ellipse(px, py, smallX, smallY, smallRX, smallRY)) wet = true;
         }
         if (!wet || px<3 || py<3 || px>=RegionSize-3 || py>=RegionSize-3) return false;
-        // Leave some grass near roads so water does not cover the road.
+        // leave some grass near roads so water does not cover the road.
         for (int dy=-1;dy<=1;++dy)
             for (int dx=-1;dx<=1;++dx)
                 if (roadVertex(x+dx,y+dy)) return false;

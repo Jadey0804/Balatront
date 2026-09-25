@@ -5,7 +5,7 @@
 # Type mapping: goblin -> Grunt; sprinter -> Sprinter; brute -> Brute.
 # turretBody and turretPipe are two visual parts of the same Turret enemy.
 # turretBody stays fixed. turretPipe rotates toward the firing direction; FPS does not control rotation.
-# The current renderer mounts the pipe at the body centre, rotates about frame centre, and assumes it points down.
+# The current renderer mounts the pipe at the body center, rotates about frame center, and assumes it points down.
 # sprinter uses fly as its movement animation. Static idle poses do not require animation playback.
 # Loaded at startup. The build uses Balatront/Resources/Sprites/sprites.txt and copies it beside the executable.
 

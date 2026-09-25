@@ -87,7 +87,7 @@ struct PlaySession {
 
     void start(Vector2 worldSize, Vector2 viewport) {
         player = Player{};
-        player.position = {worldSize.x * 0.5f, worldSize.y * 0.5f};
+        player.position = { worldSize.x * 0.5f, worldSize.y * 0.5f };
         player.previousPosition = player.position;
         elapsed = 0.0f;
         state = GameState::Playing;

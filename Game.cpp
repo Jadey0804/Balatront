@@ -40,15 +40,9 @@ namespace {
         return true;
     }
 
-    bool readAttackDirection(const GamesEngineeringBase::Window& window, Vector2 heroPlace, Vector2& outWay) {
-        float x = 0, y = 0;
-        for (unsigned int id = 0; id < XUSER_MAX_COUNT; ++id) {
-            XINPUT_STATE state = {};
-            if (XInputGetState(id, &state) != ERROR_SUCCESS) continue;
-            const float rx = float(state.Gamepad.sThumbRX), ry = float(state.Gamepad.sThumbRY);
-            if (rx*rx + ry*ry > float(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
-                * float(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)) { x = rx; y = -ry; break; }
-        }
+    bool readAttackDirection(const GamesEngineeringBase::Window& window,
+        const GamesEngineeringBase::XBoxController& controller, Vector2 heroPlace, Vector2& outWay) {
+        float x = controller.getRightX(), y = -controller.getRightY();
         if (x == 0 && y == 0 && window.mouseButtonPressed(GamesEngineeringBase::MouseLeft)) {
             x = float(window.getMouseInWindowX()) - heroPlace.x;
             y = float(window.getMouseInWindowY()) - heroPlace.y;
@@ -63,22 +57,6 @@ namespace {
         };
         outWay = directions[sector % 8];
         return true;
-    }
-
-    bool readControllerMove(Vector2& outMove) {
-        for (unsigned int id = 0; id < XUSER_MAX_COUNT; ++id) {
-            XINPUT_STATE state = {};
-            if (XInputGetState(id, &state) != ERROR_SUCCESS) continue;
-            const float x = float(state.Gamepad.sThumbLX);
-            const float y = -float(state.Gamepad.sThumbLY);
-            const float length = std::sqrt(x*x + y*y);
-            if (length <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) continue;
-            const float magnitude = ClampValue((length - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-                / (32767.0f - XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE), 0, 1);
-            outMove = {x / length * magnitude, y / length * magnitude};
-            return true;
-        }
-        return false;
     }
 
     void writeMiddleText(GamesEngineeringBase::Window& window, int lineY, const char* words) {
@@ -190,6 +168,9 @@ void Game::goToNextMap() {
 }
 
 void Game::gameUpdate(float dt) {
+    controllers.probeControllers();
+    controller = controllers.getFirstPlayerController();
+    if (controller.getID() >= 0) controller.update();
     saveMessageTime = ClampValue(saveMessageTime - dt, 0, 4);
     const bool save = canvas.keyPressed(VK_F5), load = canvas.keyPressed(VK_F9);
     const bool savePressed = save && !previousSave, loadPressed = load && !previousLoad;
@@ -200,7 +181,7 @@ void Game::gameUpdate(float dt) {
         previousEscape = canvas.keyPressed(VK_ESCAPE);
         previousEnter = canvas.keyPressed(VK_RETURN);
         previousDebug = canvas.keyPressed(VK_F1);
-        previousAoe = canvas.keyPressed(VK_SPACE);
+        previousAoe = canvas.keyPressed(VK_SPACE) || controller.APressed();
         return; // Save and load only use the last finished game frame
     }
     const bool escape = canvas.keyPressed(VK_ESCAPE);
@@ -230,7 +211,8 @@ void Game::gameUpdate(float dt) {
         float(canvas.keyPressed('D')) - float(canvas.keyPressed('A')),
         float(canvas.keyPressed('S')) - float(canvas.keyPressed('W'))
     };
-    if (input.x == 0 && input.y == 0) readControllerMove(input);
+    if (input.x == 0 && input.y == 0)
+        input = {controller.getLeftX(), -controller.getLeftY()};
     // Do not add game time on the frame when the game state changes.
     const float step = (escapePressed || enterPressed) ? 0.0f : dt;
     const float terrainMultiplier = tileMap.isRoad(session.player.position) ? GameplaySettings::get().roadMultiplier : 1.0f;
@@ -265,7 +247,7 @@ void Game::gameUpdate(float dt) {
 }
 
 void Game::fightUpdate(float dt) {
-    const bool aoe = canvas.keyPressed(VK_SPACE);
+    const bool aoe = canvas.keyPressed(VK_SPACE) || controller.APressed();
     const bool aoeClicked = aoe && !previousAoe;
     previousAoe = aoe;
     if (session.state != GameState::Playing || dt <= 0) return;
@@ -302,7 +284,7 @@ void Game::fightUpdate(float dt) {
         * session.player.attackInterval / GameplaySettings::get().attackInterval;
     manualShootCooldown = ClampValue(manualShootCooldown - dt, 0, manualInterval);
     Vector2 aim;
-    if (readAttackDirection(canvas, session.camera.worldToScreen(session.player.position), aim)
+    if (readAttackDirection(canvas, controller, session.camera.worldToScreen(session.player.position), aim)
         && manualShootCooldown <= 0) {
         manualShots.spawn(session.player.position, aim, GameplaySettings::get().manualProjectile.speed,
             GameplaySettings::get().manualProjectile.lifetime, GameplaySettings::get().manualProjectile.damage,
@@ -440,7 +422,7 @@ void Game::paintInformation() {
             ? "PAUSED - ESC/ENTER RESUME / F5 SAVE / F9 LOAD / Q QUIT"
             : session.state == GameState::GameOver ? "GAME OVER - ENTER RESTART / ESC QUIT"
             : session.state == GameState::Victory ? "VICTORY - ENTER RESTART / ESC QUIT"
-            : "WASD MOVE / MOUSE OR RIGHT STICK BOMB / SPACE AOE / ESC PAUSE");
+            : "WASD/LEFT STICK MOVE / MOUSE/RIGHT STICK BOMB / SPACE/PAD A AOE");
         const float manualInterval = GameplaySettings::get().manualAttackInterval
             * session.player.attackInterval / GameplaySettings::get().attackInterval;
         std::snprintf(status, sizeof(status), "AOE %.1f S N %u  SHOT %.3f S  BOMB %.3f S  KILLS %u",

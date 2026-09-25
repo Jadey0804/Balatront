@@ -14,7 +14,7 @@ The executable reads configuration and assets from its adjacent `Resources` dire
 
 - `WASD` or the left analogue stick: move
 - Hold the left mouse button or move the right analogue stick: fire the manual bomb in one of eight directions
-- `Space`: area-of-effect attack
+- `Space` or controller `A`: area-of-effect attack (press once per attack)
 - `Esc`: pause or resume
 - `F1`: toggle gameplay and collision diagnostics
 - `F5`: save at any time
@@ -43,4 +43,4 @@ A victory receives an `A`, `S`, `SS`, or `SSS` rank. Dying before the end displa
 
 The local save slot is `savegame.dat` beside the executable. Saves store the level, timers, procedural seed, player state, enemies, projectiles, pickups, upgrades, and portal state.
 
-`GamesEngineeringBase.h` is course framework code and must remain unchanged.
+`GamesEngineeringBase.h` is course framework code. The input extension adds four stick-value getters and fixes right-stick zero-length normalization and its deadzone constant. Game code uses this framework for controller input without calling XInput directly. The first connected controller controls both sticks and the AOE button.

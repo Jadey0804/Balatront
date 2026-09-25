@@ -8,13 +8,15 @@
 #include "LevelFlow.h"
 #include "HealthPickups.h"
 
-// This class keeps the game window and runs all game parts.
+// the class keeps the game window and runs all game parts
 class Game {
     friend class SaveGame;
 public:
     int run();
 private:
     GamesEngineeringBase::Window canvas;
+    GamesEngineeringBase::XBoxControllers controllers;
+    GamesEngineeringBase::XBoxController controller;
     TileMap tileMap;
     GamesEngineeringBase::Image playerImage;
     PlaySession session;
